@@ -1,8 +1,8 @@
-# APEX
+# DOPER
 
 Application d'entraînement hybride (force, volume, course, rameur, Hyrox) avec progression automatique des charges et des allures.
 
-Récupérée depuis l'artifact claude.ai « APEX » pour être développée ici.
+Anciennement APEX, récupérée depuis l'artifact claude.ai « APEX » pour être développée ici.
 
 ## Lancer
 
@@ -13,11 +13,11 @@ python3 -m http.server 8000
 # puis http://localhost:8000
 ```
 
-Les données sont stockées dans `localStorage` (clé `apex3`). Publiée comme artifact claude.ai, l'app synchronise aussi l'état via `window.claude.use('db')` / `('user')` ; hors claude.ai ce bloc est ignoré.
+Les données sont stockées dans `localStorage` (clé `apex3`, conservée depuis APEX pour ne pas perdre les données). Publiée comme artifact claude.ai, l'app synchronise aussi l'état via `window.claude.use('db')` / `('user')` ; hors claude.ai ce bloc est ignoré.
 
 ## Installer sur iPhone
 
-APEX est une PWA : elle s'installe depuis Safari et s'ouvre en plein écran, hors ligne.
+DOPER est une PWA : elle s'installe depuis Safari et s'ouvre en plein écran, hors ligne.
 
 1. Héberger le dépôt avec GitHub Pages : Settings → Pages → Source « Deploy from a branch », branche `claude/apex-musculation-app-15najw`, dossier `/ (root)`.
 2. Sur l'iPhone, ouvrir `https://cedricrobert2000-ship-it.github.io/Snoop/` dans **Safari**.

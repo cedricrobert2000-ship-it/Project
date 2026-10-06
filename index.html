@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>APEX</title>
+<title>DOPER</title>
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="APEX">
+<meta name="apple-mobile-web-app-title" content="DOPER">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -442,7 +442,7 @@ function fitWorkout(name,steps){
 }
 function runWorkout(id,dateStr){
   const p=runPresc(id,dateStr),w=cw(dateStr),d=parse(dateStr);
-  const tag=`APEX ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  const tag=`DOPER ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
   const easy=[p.a2?p.a2:S.p10+115,S.p10+80];
   if(id==='run-frac'){
     return {name:`${tag} ${p.reps}x${p.dist}m`,steps:[
@@ -458,7 +458,7 @@ function runWorkout(id,dateStr){
 }
 async function downloadFit(id){
   const wk=runWorkout(id,ui.date),bytes=fitWorkout(wk.name,wk.steps);
-  const fname=`APEX_${ui.date}_${id.replace('run-','')}.fit`;
+  const fname=`DOPER_${ui.date}_${id.replace('run-','')}.fit`;
   const file=new File([bytes],fname,{type:'application/octet-stream'});
   try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:wk.name});return}}catch(e){if(e&&e.name==='AbortError')return}
   const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=fname;document.body.appendChild(a);a.click();
@@ -588,7 +588,7 @@ function strip(){
 }
 function hero(){
   const w=cw(ui.date),W=WAVE[w];
-  return `<div class="hero"><div class="hero-ic"><svg viewBox="0 0 24 24" fill="var(--lime)"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div><div><b>Semaine ${w} sur 4, ${W.name.toLowerCase()}</b><span>Cycle ${cycleN(ui.date)}. Les charges suivent tes séances réelles.</span></div></div>`;
+  return `<div class="hero"><div class="hero-ic"><svg viewBox="0 0 100 100" fill="none" stroke="var(--lime)" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M27 18H49A32 32 0 0 1 49 82H27Z" stroke-width="11"/><polyline points="12,50 34,50 41,36 51,64 59,42 64,50 88,50" stroke-width="6.5"/></svg></div><div><b>Semaine ${w} sur 4, ${W.name.toLowerCase()}</b><span>Cycle ${cycleN(ui.date)}. Les charges suivent tes séances réelles.</span></div></div>`;
 }
 function viewToday(){
   const list=sessionsOf(ui.date);
