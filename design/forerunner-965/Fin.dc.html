@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fin de séance</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#000}</style>
+</helmet>
+<div style="width: 454px; height: 454px; border-radius: 50%; background: #000000; overflow: hidden; position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Lexend', system-ui, sans-serif; color: #F4F4F2">
+  <div style="width: 58px; height: 58px; border-radius: 50%; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M6 14.5 L11.5 20 L22 8.5" fill="none" stroke="#000000" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+  </div>
+  <div style="font-size: 30px; font-weight: 600; letter-spacing: -0.01em; margin-top: 14px">Séance terminée</div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 270px; margin-top: 18px">
+    <div style="background: #151515; border-radius: 18px; padding: 10px 12px; text-align: center"><div style="font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums">58:12</div><div style="font-size: 13px; color: #8D8D88">durée</div></div>
+    <div style="background: #151515; border-radius: 18px; padding: 10px 12px; text-align: center"><div style="font-size: 22px; font-weight: 600">18/18</div><div style="font-size: 13px; color: #8D8D88">séries</div></div>
+  </div>
+  <div style="font-size: 15px; color: #8D8D88; margin-top: 18px">Lundi prochain au développé</div>
+  <div style="font-size: 22px; font-weight: 500; color: {{accent}}">85 kg × 4</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4F24A","options":["#D4F24A","#FFFFFF","#7FD1FF"]},"$preview":{"width":454,"height":454}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#D4F24A' };
+  }
+}
+</script>
+</body>
+</html>

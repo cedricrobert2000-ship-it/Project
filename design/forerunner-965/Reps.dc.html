@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Reps réalisées</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#000}</style>
+</helmet>
+<div style="width: 454px; height: 454px; border-radius: 50%; background: #000000; overflow: hidden; position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Lexend', system-ui, sans-serif; color: #F4F4F2">
+  <div style="font-size: 18px; color: #8D8D88">Série 3 terminée</div>
+  <svg width="36" height="22" viewBox="0 0 36 22" style="margin-top: 18px" aria-hidden="true"><path d="M6 16 L18 6 L30 16" fill="none" stroke="#55554F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+  <div style="font-size: 150px; font-weight: 600; line-height: 1; letter-spacing: -0.04em; color: {{accent}}; font-variant-numeric: tabular-nums">6</div>
+  <svg width="36" height="22" viewBox="0 0 36 22" aria-hidden="true"><path d="M6 6 L18 16 L30 6" fill="none" stroke="#55554F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+  <div style="font-size: 18px; color: #8D8D88; margin-top: 14px">reps pour 5 prévues</div>
+  <div style="font-size: 14px; color: #55554F; margin-top: 18px">Haut, bas pour ajuster. Start pour valider</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4F24A","options":["#D4F24A","#FFFFFF","#7FD1FF"]},"$preview":{"width":454,"height":454}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#D4F24A' };
+  }
+}
+</script>
+</body>
+</html>

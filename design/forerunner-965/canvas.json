@@ -1,0 +1,73 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Exercice.dc.html": {
+      "h": 454,
+      "radius": 227,
+      "title": "2. Exercice en cours",
+      "w": 454,
+      "x": 534,
+      "y": 0
+    },
+    "Fin.dc.html": {
+      "h": 454,
+      "radius": 227,
+      "title": "5. Fin de séance",
+      "w": 454,
+      "x": 2136,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 454,
+      "radius": 227,
+      "title": "1. Séance du jour",
+      "w": 454,
+      "x": 0,
+      "y": 0
+    },
+    "Repos.dc.html": {
+      "h": 454,
+      "radius": 227,
+      "title": "4. Repos",
+      "w": 454,
+      "x": 1602,
+      "y": 0
+    },
+    "Reps.dc.html": {
+      "h": 454,
+      "radius": 227,
+      "title": "3. Reps réalisées",
+      "w": 454,
+      "x": 1068,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-06T13:25:18.875Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "flow": {
+      "kind": "title1",
+      "maxW": 2590,
+      "text": "APEX sur Forerunner 965 : une séance de force",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Exercice.dc.html",
+    "Reps.dc.html",
+    "Repos.dc.html",
+    "Fin.dc.html"
+  ],
+  "pages": [],
+  "title": "APEX — app Forerunner 965"
+}

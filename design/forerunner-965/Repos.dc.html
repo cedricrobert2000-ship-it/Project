@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Repos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#000}</style>
+</helmet>
+<div style="width: 454px; height: 454px; border-radius: 50%; background: #000000; overflow: hidden; position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Lexend', system-ui, sans-serif; color: #F4F4F2">
+  <svg width="454" height="454" viewBox="0 0 454 454" style="position: absolute; left: 0; top: 0" aria-hidden="true">
+    <circle cx="227" cy="227" r="215" fill="none" stroke="#1E1E1E" stroke-width="10"></circle>
+    <circle cx="227" cy="227" r="215" fill="none" stroke="{{accent}}" stroke-width="10" stroke-linecap="round" stroke-dasharray="810 1351" transform="rotate(-90 227 227)"></circle>
+  </svg>
+  <div style="font-size: 20px; color: #8D8D88">Repos</div>
+  <div style="font-size: 104px; font-weight: 600; line-height: 1.05; letter-spacing: -0.03em; font-variant-numeric: tabular-nums">1:48</div>
+  <div style="font-size: 17px; color: #55554F">sur 3:00</div>
+  <div style="font-size: 15px; color: #8D8D88; margin-top: 30px">Ensuite</div>
+  <div style="font-size: 21px; font-weight: 500; margin-top: 2px">Série 4, 80 kg × 5</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4F24A","options":["#D4F24A","#FFFFFF","#7FD1FF"]},"$preview":{"width":454,"height":454}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#D4F24A' };
+  }
+}
+</script>
+</body>
+</html>

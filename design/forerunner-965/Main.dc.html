@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Séance du jour</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#000}</style>
+</helmet>
+<div style="width: 454px; height: 454px; border-radius: 50%; background: #000000; overflow: hidden; position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0px; font-family: 'Lexend', system-ui, sans-serif; color: #F4F4F2">
+  <svg width="454" height="454" viewBox="0 0 454 454" style="position: absolute; left: 0; top: 0" aria-hidden="true"><path d="M395.5 85.6 A220 220 0 0 1 433.7 151.8" fill="none" stroke="{{accent}}" stroke-width="6" stroke-linecap="round"></path></svg>
+  <div style="font-size: 19px; color: #8D8D88; font-weight: 300">Lundi 19 oct.</div>
+  <div style="font-size: 44px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-top: 4px">Force haut</div>
+  <div style="font-size: 19px; color: {{accent}}; margin-top: 6px">Semaine 1 sur 4</div>
+  <div style="width: 290px; display: flex; flex-direction: column; gap: 9px; margin-top: 26px; font-size: 18px">
+    <div style="display: flex; justify-content: space-between"><span style="color: #8D8D88">Développé couché</span><span style="font-weight: 500">80</span></div>
+    <div style="display: flex; justify-content: space-between"><span style="color: #8D8D88">Tractions lestées</span><span style="font-weight: 500">+22,5</span></div>
+    <div style="display: flex; justify-content: space-between"><span style="color: #8D8D88">Strict press</span><span style="font-weight: 500">42,5</span></div>
+    <div style="display: flex; justify-content: space-between"><span style="color: #8D8D88">Dips lestés</span><span style="font-weight: 500">+35</span></div>
+  </div>
+  <div style="font-size: 15px; color: #55554F; margin-top: 24px">Start pour commencer</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4F24A","options":["#D4F24A","#FFFFFF","#7FD1FF"]},"$preview":{"width":454,"height":454}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#D4F24A' };
+  }
+}
+</script>
+</body>
+</html>
