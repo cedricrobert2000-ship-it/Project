@@ -364,18 +364,105 @@ function hypPresc(id,dateStr){
 function runPresc(id,dateStr){
   const w=cw(dateStr),p=S.p10;
   if(id==='run-frac'){
-    const P={1:{t:'6 × 1000 m',a:p-5,r:"2' trot",v:'≈ 10 km',n:'Allure légèrement plus rapide que ton 10 km.'},
-      2:{t:'5 × 1200 m',a:p,r:"2' trot",v:'≈ 10 km',n:'Allure 10 km, régulier sur chaque répétition.'},
-      3:{t:'3 × 2000 m',a:p+8,r:"2'30 trot",v:'≈ 11 km',n:'Allure seuil : dur mais contrôlé.'},
-      4:{t:'8 × 400 m',a:p-12,r:"1'30 trot",v:'≈ 7 km',n:'Décharge : vitesse relâchée, peu de volume.'}}[w];
+    const P={1:{t:'6 × 1000 m',reps:6,dist:1000,rec:120,a:p-5,r:"2' trot",v:'≈ 10 km',n:'Allure légèrement plus rapide que ton 10 km.'},
+      2:{t:'5 × 1200 m',reps:5,dist:1200,rec:120,a:p,r:"2' trot",v:'≈ 10 km',n:'Allure 10 km, régulier sur chaque répétition.'},
+      3:{t:'3 × 2000 m',reps:3,dist:2000,rec:150,a:p+8,r:"2'30 trot",v:'≈ 11 km',n:'Allure seuil : dur mais contrôlé.'},
+      4:{t:'8 × 400 m',reps:8,dist:400,rec:90,a:p-12,r:"1'30 trot",v:'≈ 7 km',n:'Décharge : vitesse relâchée, peu de volume.'}}[w];
     return {...P,warm:"15' footing + 4 lignes droites, 10' retour au calme",adapt:true};
   }
   if(id==='run-z2'){
     const m={1:45,2:50,3:55,4:35}[w];
-    return {t:m+' min',a:p+80,a2:p+100,v:'≈ '+Math.round(m*60/(p+90))+' km',n:'Tu dois pouvoir parler en phrases complètes.'};
+    return {t:m+' min',min:m,a:p+80,a2:p+100,v:'≈ '+Math.round(m*60/(p+90))+' km',n:'Tu dois pouvoir parler en phrases complètes.'};
   }
   const km={1:12,2:13.5,3:15,4:10}[w];
-  return {t:kg(km)+' km',a:p+90,a2:p+115,v:'≈ '+mmss(km*(p+100)/60).replace(':','h')+'',n:'Facile du début à la fin. Les 2 derniers km peuvent être un peu plus vifs.'};
+  return {t:kg(km)+' km',km,a:p+90,a2:p+115,v:'≈ '+mmss(km*(p+100)/60).replace(':','h')+'',n:'Facile du début à la fin. Les 2 derniers km peuvent être un peu plus vifs.'};
+}
+/* ---------- Garmin : séance structurée au format FIT (workout) ---------- */
+// Structure FIT : en-tête 14 octets, messages file_id (0), workout (26), workout_step (27), CRC final.
+const FIT_EPOCH=631065600;
+function fitCrc(crc,byte){
+  const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400];
+  let t=T[crc&0xF];crc=(crc>>4)&0x0FFF;crc=crc^t^T[byte&0xF];
+  t=T[crc&0xF];crc=(crc>>4)&0x0FFF;return crc^t^T[(byte>>4)&0xF];
+}
+function fitEncode(messages){
+  // messages: [{global, fields:[[num, baseType, size, value]]}], un type local par message global
+  const BT={enum:[0x00,1],uint8:[0x02,1],uint16:[0x84,2],uint32:[0x86,4],uint32z:[0x8C,4],string:[0x07,0]};
+  const out=[],u16=v=>out.push(v&255,(v>>8)&255),u32=v=>{u16(v&0xFFFF);u16(v>>>16)};
+  const locals={};let nextLocal=0;
+  for(const m of messages){
+    let lt=locals[m.global];
+    if(lt===undefined){
+      lt=locals[m.global]=nextLocal++;
+      out.push(0x40|lt,0,0);u16(m.global);out.push(m.fields.length);
+      for(const [num,type,size] of m.fields)out.push(num,size||BT[type][1],BT[type][0]);
+    }
+    out.push(lt);
+    for(const [,type,size,v] of m.fields){
+      if(type==='string'){const b=new TextEncoder().encode(v||'');for(let i=0;i<size;i++)out.push(i<size-1&&i<b.length?b[i]:0)}
+      else if(BT[type][1]===1)out.push(v&255);
+      else if(BT[type][1]===2)u16(v);
+      else u32(v);
+    }
+  }
+  const head=[14,0x20],h=[];
+  const hu16=v=>h.push(v&255,(v>>8)&255);
+  h.push(...head);hu16(2132);hu16(out.length&0xFFFF);hu16(out.length>>>16);h.push(46,70,73,84);// ".FIT"
+  let crc=0;for(const b of h)crc=fitCrc(crc,b);hu16(crc);
+  const all=h.concat(out);crc=0;for(const b of all)crc=fitCrc(crc,b);
+  all.push(crc&255,(crc>>8)&255);
+  return new Uint8Array(all);
+}
+// Coupe une chaîne UTF-8 sans casser un caractère accentué.
+function fitStr(s,max){let r='';for(const c of String(s)){if(new TextEncoder().encode(r+c).length>max-1)break;r+=c}return r}
+function fitWorkout(name,steps){
+  // steps : {name, notes, intensity, time (s) | dist (m), pace:[lent, rapide] s/km} ou {repeat:n, steps:[...]}
+  const INT={active:0,rest:1,warmup:2,cooldown:3,recovery:4},flat=[];
+  const add=st=>{
+    if(st.repeat){const from=flat.length;st.steps.forEach(add);flat.push({rep:true,from,n:st.repeat});return}
+    flat.push(st);
+  };
+  steps.forEach(add);
+  const NONE=0xFFFFFFFF;
+  const msgs=[{global:0,fields:[[0,'enum',0,5],[1,'uint16',0,255],[2,'uint16',0,0],[3,'uint32z',0,(Math.random()*0x7FFFFFFF)|1],[4,'uint32',0,Math.floor(Date.now()/1000)-FIT_EPOCH]]},
+    {global:26,fields:[[4,'enum',0,1],[11,'enum',0,0],[6,'uint16',0,flat.length],[8,'string',32,fitStr(name,32)]]}];
+  flat.forEach((st,i)=>{
+    let dt,dv,tt,tv=0,lo=NONE,hi=NONE,it=0xFF;
+    if(st.rep){dt=6;dv=st.from;tt=0xFF;tv=st.n}
+    else{
+      if(st.time){dt=0;dv=Math.round(st.time*1000)}
+      else if(st.dist){dt=1;dv=Math.round(st.dist*100)}
+      else{dt=5;dv=NONE}
+      if(st.pace){tt=0;lo=Math.round(1e6/st.pace[0]);hi=Math.round(1e6/st.pace[1])}else tt=2;
+      it=INT[st.intensity||'active'];
+    }
+    msgs.push({global:27,fields:[[254,'uint16',0,i],[0,'string',24,fitStr(st.name||'',24)],[1,'enum',0,dt],[2,'uint32',0,dv],[3,'enum',0,tt],[4,'uint32',0,tv],[5,'uint32',0,lo],[6,'uint32',0,hi],[7,'enum',0,it],[8,'string',128,fitStr(st.notes||'',128)]]});
+  });
+  return fitEncode(msgs);
+}
+function runWorkout(id,dateStr){
+  const p=runPresc(id,dateStr),w=cw(dateStr),d=parse(dateStr);
+  const tag=`APEX ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  const easy=[p.a2?p.a2:S.p10+115,S.p10+80];
+  if(id==='run-frac'){
+    return {name:`${tag} ${p.reps}x${p.dist}m`,steps:[
+      {name:'Echauffement',intensity:'warmup',time:15*60,notes:'Footing facile, puis 4 lignes droites'},
+      {name:'Lignes droites',intensity:'active',notes:'4 accélérations progressives, Lap pour passer',dist:null},
+      {repeat:p.reps,steps:[
+        {name:p.dist+' m',intensity:'active',dist:p.dist,pace:[p.a+5,p.a-5],notes:p.n},
+        {name:'Recup trot',intensity:'recovery',time:p.rec}]},
+      {name:'Retour au calme',intensity:'cooldown',time:10*60}]};
+  }
+  if(id==='run-z2')return {name:`${tag} Z2 ${p.min} min`,steps:[{name:'Zone 2',time:p.min*60,pace:[p.a2,p.a],notes:p.n}]};
+  return {name:`${tag} Longue ${kg(p.km)} km`,steps:[{name:'Sortie longue',dist:p.km*1000,pace:[p.a2,p.a],notes:p.n}]};
+}
+async function downloadFit(id){
+  const wk=runWorkout(id,ui.date),bytes=fitWorkout(wk.name,wk.steps);
+  const fname=`APEX_${ui.date}_${id.replace('run-','')}.fit`;
+  const file=new File([bytes],fname,{type:'application/octet-stream'});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:wk.name});return}}catch(e){if(e&&e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=fname;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 }
 function ergoPresc(dateStr){
   const w=cw(dateStr);
@@ -589,7 +676,8 @@ function runCard(id){
   <div class="grid3"><div class="stat"><b class="num">${allure}</b><small>par km</small></div><div class="stat"><b class="num">${p.v}</b><small>volume</small></div><div class="stat"><b class="num">${p.r||'continu'}</b><small>récup</small></div></div>
   ${p.warm?`<div class="tip">${p.warm}</div>`:''}
   ${p.adapt?`<div class="field"><span>Allure moyenne des répétitions</span><div class="stepper"><button data-pace="1" data-id="${id}" aria-label="Plus lent">−</button><b class="num" style="min-width:56px;text-align:center">${pace(dr.run.pace)}</b><button data-pace="-1" data-id="${id}" aria-label="Plus rapide">+</button></div></div>`:''}
-  ${rpeHTML(dr,id)}</div>`;
+  ${rpeHTML(dr,id)}
+  <button class="ghost" data-act="fit" data-id="${id}">Télécharger pour Garmin (.fit)</button></div>`;
 }
 function ergoCard(){
   const id='ergo-renfo',p=ergoPresc(ui.date),dr=draft(ui.date,id);
@@ -693,6 +781,7 @@ document.addEventListener('click',e=>{
   if(ds.cw){if(!S.onboarded){document.querySelectorAll('[data-orm]').forEach(inp=>{const v=parseFloat(inp.value);if(!isNaN(v))S.orm[inp.dataset.orm]=v});readProfile();}const n=+ds.cw;S.start=iso(addDays(mondayOf(new Date()),-7*(n-1)));S.drafts={};touch();render();return}
   const act=ds.act;
   if(act==='closeSheet'){closeSheet();return}
+  if(act==='fit'){downloadFit(ds.id);return}
   if(act==='finish'){
     if(SESSIONS[ds.id].kind==='hyrox'){const t=parseMMSS($('#wodtime')?.value);if(t)draft(ui.date,ds.id).run.time=t}
     ui.sel=null;finish(ui.date,ds.id);return;

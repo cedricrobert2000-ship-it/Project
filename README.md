@@ -25,6 +25,12 @@ APEX est une PWA : elle s'installe depuis Safari et s'ouvre en plein écran, hor
 
 Pour publier une mise à jour, pousser sur la branche puis incrémenter `VERSION` dans `sw.js` ; l'app se met à jour à l'ouverture suivante (réseau d'abord).
 
+## Séances de course sur Garmin
+
+Chaque séance de run (fractionné, zone 2, sortie longue) a un bouton « Télécharger pour Garmin (.fit) ». Il génère un fichier FIT *workout* structuré (échauffement, répétitions avec allure cible, récup, retour au calme), validé avec le SDK FIT officiel de Garmin.
+
+Mettre le fichier sur la montre (Forerunner 965) : brancher la montre en USB à un ordinateur et copier le `.fit` dans le dossier `GARMIN/NewFiles`. Au débranchement, la séance apparaît dans Entraînement → Mes entraînements. Sur Mac, la montre est en MTP : utiliser OpenMTP.
+
 ## Structure
 
 - `index.html` — toute l'app (HTML, CSS, JS vanilla).
