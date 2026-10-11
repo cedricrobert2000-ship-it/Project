@@ -163,6 +163,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lime);outline-o
 .srow input{width:96px;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:9px 10px;text-align:right}
 .seg{display:flex;background:var(--card2);border-radius:999px;padding:3px}
 .seg button{padding:7px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+.goal-seg button{flex:1;padding:7px 2px;white-space:nowrap;font-size:12px}
 .seg button.on{background:var(--lime);color:var(--lime-ink);font-weight:600}
 
 /* nav */
@@ -476,21 +477,56 @@ function hypPresc(id,dateStr){
   if(de)target=H.lo;
   return {sets,lo:H.lo,hi:H.hi,load,target,de};
 }
+/* ---------- objectif course ---------- */
+const GOALS={'5k':{km:5,label:'5 km',short:'5 km'},'10k':{km:10,label:'10 km',short:'10 km'},semi:{km:21.0975,label:'Semi-marathon',short:'Semi'},marathon:{km:42.195,label:'Marathon',short:'Marathon'}};
+// Séances de fractionné par objectif : [reps, distance m, récup s, décalage d'allure s/km vs allure course travaillée, consigne]
+const FRAC={
+  '5k':{1:[10,400,90,-8,'Plus vite que ton allure 5 km, relâché.'],2:[6,800,120,-3,'Proche de ton allure 5 km, régulier.'],3:[5,1000,120,0,'Allure 5 km visée.'],4:[6,300,90,-10,'Décharge : vélocité, peu de volume.']},
+  '10k':{1:[6,1000,120,-5,'Allure légèrement plus rapide que ton 10 km.'],2:[5,1200,120,0,'Allure 10 km, régulier sur chaque répétition.'],3:[3,2000,150,8,'Allure seuil : dur mais contrôlé.'],4:[8,400,90,-12,'Décharge : vitesse relâchée, peu de volume.']},
+  semi:{1:[5,1600,90,-8,'Un peu plus vite que l’allure semi.'],2:[4,2000,120,-4,'Proche de l’allure semi, contrôlé.'],3:[3,3000,150,0,'Allure semi visée, en gestion.'],4:[6,800,90,-10,'Décharge : rythme vif, peu de volume.']},
+  marathon:{1:[4,2000,120,-15,'Allure seuil, plus vite que le marathon.'],2:[3,3000,120,-10,'Entre seuil et allure marathon.'],3:[2,5000,180,0,'Allure marathon visée, très régulier.'],4:[5,1000,90,-15,'Décharge : rythme vif, peu de volume.']}
+};
+const LONG={'5k':{1:8,2:9,3:10,4:7},'10k':{1:12,2:13.5,3:15,4:10},semi:{1:14,2:16,3:18,4:12},marathon:{1:20,2:24,3:28,4:16}};
+const Z2MIN={'5k':{1:40,2:45,3:50,4:35},'10k':{1:45,2:50,3:55,4:35},semi:{1:50,2:55,3:60,4:40},marathon:{1:55,2:60,3:70,4:45}};
+const dur=s=>{s=Math.round(s);return s>=3600?Math.floor(s/3600)+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'):mmss(s)};
+// "1h35", "1:35:00", "42:30" ; 2 nombres = h:mm pour semi et marathon, mm:ss sinon.
+function parseGoalTime(t,g){
+  if(!t)return null;t=String(t).trim().toLowerCase();
+  if(t.includes('h')){const[a,b]=t.split('h');const h=+a,m=+(b||0);return isNaN(h)||isNaN(m)?null:h*3600+m*60}
+  const p=t.split(/[:']/).map(Number);if(p.some(isNaN))return null;
+  if(p.length===3)return p[0]*3600+p[1]*60+p[2];
+  if(p.length===2)return (g==='semi'||g==='marathon')?p[0]*3600+p[1]*60:p[0]*60+p[1];
+  return p.length===1&&p[0]>0?p[0]*60:null;
+}
+// Estimation d'un temps à partir de l'allure 10 km (formule de Riegel).
+const predict=km=>S.p10*10*Math.pow(km/10,1.06);
+function goalInfo(dateStr){
+  const G=S.goal||{},g=GOALS[G.dist]?G.dist:null,key=g||'10k',km=GOALS[key].km;
+  const pred=predict(km),cur=pred/km;
+  let gp=null,rp=cur;
+  if(g&&G.time){gp=G.time/km;rp=Math.min(cur,Math.max(gp,cur-6))}// on vise l'objectif, max 6 s/km plus vite que le niveau actuel
+  let daysTo=null,taper=false;
+  if(g&&G.date){daysTo=Math.round((parse(G.date)-parse(dateStr||iso(new Date())))/DAY_MS);taper=daysTo>=0&&daysTo<14}
+  return {g,key,km,pred,cur,gp,rp,daysTo,taper,time:G.time||null,date:G.date||null};
+}
+function recLbl(r){return Math.floor(r/60)+"'"+(r%60?String(r%60).padStart(2,'0'):'')+' trot'}
 function runPresc(id,dateStr){
-  const w=cw(dateStr),p=S.p10;
+  const w=cw(dateStr),p=S.p10,gi=goalInfo(dateStr),tp=gi.taper?.6:1;
+  const tap=gi.taper?' Affûtage avant ta course : volume réduit.':'';
   if(id==='run-frac'){
-    const P={1:{t:'6 × 1000 m',reps:6,dist:1000,rec:120,a:p-5,r:"2' trot",v:'≈ 10 km',n:'Allure légèrement plus rapide que ton 10 km.'},
-      2:{t:'5 × 1200 m',reps:5,dist:1200,rec:120,a:p,r:"2' trot",v:'≈ 10 km',n:'Allure 10 km, régulier sur chaque répétition.'},
-      3:{t:'3 × 2000 m',reps:3,dist:2000,rec:150,a:p+8,r:"2'30 trot",v:'≈ 11 km',n:'Allure seuil : dur mais contrôlé.'},
-      4:{t:'8 × 400 m',reps:8,dist:400,rec:90,a:p-12,r:"1'30 trot",v:'≈ 7 km',n:'Décharge : vitesse relâchée, peu de volume.'}}[w];
-    return {...P,warm:"15' footing + 4 lignes droites, 10' retour au calme",adapt:true};
+    let [reps,dist,rec,off,n]=FRAC[gi.key][w];
+    reps=Math.max(2,Math.ceil(reps*tp));
+    const a=gi.rp+off,km=reps*dist/1000+5;
+    return {t:reps+' × '+dist+' m',reps,dist,rec,a,r:recLbl(rec),v:'≈ '+kg(Math.round(km))+' km',n:n+tap,
+      warm:"15' footing + 4 lignes droites, 10' retour au calme",adapt:true};
   }
   if(id==='run-z2'){
-    const m={1:45,2:50,3:55,4:35}[w];
-    return {t:m+' min',min:m,a:p+80,a2:p+100,v:'≈ '+Math.round(m*60/(p+90))+' km',n:'Tu dois pouvoir parler en phrases complètes.'};
+    const m=Math.round(Z2MIN[gi.key][w]*tp/5)*5;
+    return {t:m+' min',min:m,a:p+80,a2:p+100,v:'≈ '+Math.round(m*60/(p+90))+' km',n:'Tu dois pouvoir parler en phrases complètes.'+tap};
   }
-  const km={1:12,2:13.5,3:15,4:10}[w];
-  return {t:kg(km)+' km',km,a:p+90,a2:p+115,v:'≈ '+mmss(km*(p+100)/60).replace(':','h')+'',n:'Facile du début à la fin. Les 2 derniers km peuvent être un peu plus vifs.'};
+  const km=Math.round(LONG[gi.key][w]*tp*2)/2;
+  const n=gi.key==='marathon'&&!gi.taper&&w<4&&gi.gp?'Facile, puis les 5 derniers km à ton allure marathon ('+pace(Math.max(gi.gp,gi.rp))+'/km).':'Facile du début à la fin. Les 2 derniers km peuvent être un peu plus vifs.';
+  return {t:kg(km)+' km',km,a:p+90,a2:p+115,v:'≈ '+mmss(km*(p+100)/60).replace(':','h')+'',n:n+tap};
 }
 /* ---------- Garmin : séance structurée au format FIT (workout) ---------- */
 // Structure FIT : en-tête 14 octets, messages file_id (0), workout (26), workout_step (27), CRC final.
@@ -783,6 +819,12 @@ function hypCard(hid,id){
   ${loadBlock}${prevHTML(id,hid,false,H.unit==='s'?'s':'reps')}${setsHTML(x,()=>({show:p.target,min:p.lo}),id,hid,unit)}${H.tip?`<div class="tip">${H.tip}</div>`:''}</div>`;
 }
 function rpeHTML(dr,id){return `<div class="field"><span>Effort ressenti</span><small style="color:var(--muted)">sur 10</small></div><div class="rpe">${[5,6,7,8,9,10].map(n=>`<button class="${dr.rpe===n?'on':''}" data-rpe="${n}" data-id="${id}">${n}</button>`).join('')}</div>`}
+function goalLine(){
+  const gi=goalInfo(ui.date);if(!gi.g)return '';
+  const parts=['Objectif '+GOALS[gi.g].short+(gi.time?' en '+dur(gi.time):'')];
+  if(gi.daysTo!=null&&gi.daysTo>=0)parts.push(gi.daysTo===0?'c’est le jour J':'J-'+gi.daysTo);
+  return `<div class="tip" style="border-left-color:var(--lime)">${parts.join(' · ')}</div>`;
+}
 function runCard(id){
   const p=runPresc(id,ui.date),dr=draft(ui.date,id);
   const allure=p.a2?pace(p.a)+'-'+pace(p.a2):pace(p.a);
@@ -790,6 +832,7 @@ function runCard(id){
   <div class="run-big num">${p.t}</div><div class="ex-meta">${p.n}</div>
   <div class="grid3"><div class="stat"><b class="num">${allure}</b><small>par km</small></div><div class="stat"><b class="num">${p.v}</b><small>volume</small></div><div class="stat"><b class="num">${p.r||'continu'}</b><small>récup</small></div></div>
   ${p.warm?`<div class="tip">${p.warm}</div>`:''}
+  ${goalLine()}
   ${p.adapt?`<div class="field"><span>Allure moyenne des répétitions</span><div class="stepper"><button data-pace="1" data-id="${id}" aria-label="Plus lent">−</button><b class="num" style="min-width:56px;text-align:center">${pace(dr.run.pace)}</b><button data-pace="-1" data-id="${id}" aria-label="Plus rapide">+</button></div></div>`:''}
   ${rpeHTML(dr,id)}
   <button class="ghost" data-act="fit" data-id="${id}">Télécharger pour Garmin (.fit)</button></div>`;
@@ -837,9 +880,28 @@ function viewProgress(){
   h+=`</div><div class="sec"><h2>Moteur</h2><small>calculé sur tes séances</small></div><div class="pgrid">`;
   h+=`<div class="pcard"><small>Allure 10 km</small><b class="num">${pace(S.p10)}/km</b><div class="sub">≈ ${mmss(S.p10*10).replace(/^(\d+):/,'$1 min ')} s</div>${spark(S.hist.run,x=>x.p10,true)}</div>`;
   h+=`<div class="pcard"><small>Rameur 2000 m</small><b class="num">${S.ergo2k?mmss(S.ergo2k):'à tester'}</b><div class="sub">${S.ergo2k?mmss(S.ergo2k/4)+' par 500 m':'mercredi soir'}</div>${spark(S.hist.ergo,x=>x.t,true)}</div></div>`;
+  const gi=goalInfo();
+  if(gi.g){
+    const pct=gi.time?Math.max(0,Math.min(100,Math.round(gi.time/gi.pred*100))):null;
+    h+=`<div class="sec"><h2>Objectif</h2><small>${gi.daysTo!=null&&gi.daysTo>=0?'J-'+gi.daysTo:''}</small></div><div class="card"><div class="ex-top"><div><div class="ex-name">${GOALS[gi.g].label}${gi.time?' en '+dur(gi.time):''}</div><div class="ex-meta">Estimation actuelle ${dur(gi.pred)}, d’après ton allure 10 km</div></div></div>${pct!=null?`<div style="height:8px;background:var(--card2);border-radius:99px;margin-top:12px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--lime);border-radius:99px"></div></div><div class="ex-meta" style="margin-top:6px">${pct>=100?'Objectif à ta portée, tiens le rythme.':pct+' % du chemin'}</div>`:''}</div>`;
+  }
   const logs=Object.values(S.logs).sort((a,b)=>b.at-a.at).slice(0,8);
   h+=`<div class="sec"><h2>Dernières séances</h2></div><div class="card">${logs.length?logs.map(l=>`<div class="log-row"><span>${SESSIONS[l.id].name}</span><small>${parse(l.d).getDate()} ${MOIS[parse(l.d).getMonth()].slice(0,4)}.</small></div>`).join(''):'<div style="color:var(--muted);font-size:14px">Termine ta première séance pour voir ta progression ici.</div>'}</div>`;
   return h;
+}
+function goalSettings(){
+  const G=S.goal||{},gi=goalInfo();
+  let sum='';
+  if(gi.g){
+    const est=dur(gi.pred);
+    sum=`<div class="grid3"><div class="stat"><b class="num">${gi.gp?pace(gi.gp):'—'}</b><small>allure visée</small></div><div class="stat"><b class="num">${est}</b><small>estimation actuelle</small></div><div class="stat"><b class="num">${gi.time?(gi.pred<=gi.time?'atteint':'−'+dur(gi.pred-gi.time)):'—'}</b><small>à gagner</small></div></div>
+    <div class="tip">${gi.daysTo==null?'Ajoute la date pour l’affûtage automatique.':gi.daysTo<0?'Course passée : mets à jour ton objectif.':gi.taper?'Affûtage en cours : volume réduit jusqu’à la course.':'J-'+gi.daysTo+'. Fractionné, sortie longue et allures sont calés sur cet objectif.'}</div>`;
+  }
+  return `<div class="sec"><h2>Objectif course</h2><small>adapte tes séances de run</small></div><div class="card">
+  <div class="seg goal-seg">${[['','Aucun'],['5k','5 km'],['10k','10 km'],['semi','Semi'],['marathon','Marathon']].map(([k,l])=>`<button class="${(G.dist||'')===k?'on':''}" data-goal="${k||'none'}">${l}</button>`).join('')}</div>
+  ${gi.g?`<div class="srow" style="margin-top:8px"><label>Temps visé<small>${gi.g==='semi'||gi.g==='marathon'?'h:mm, ex. 1:35':'mm:ss, ex. 45:00'}</small></label><input data-goal-time inputmode="numeric" placeholder="${gi.g==='semi'?'1:45':gi.g==='marathon'?'3:45':gi.g==='5k'?'22:00':'45:00'}" value="${G.time?dur(G.time):''}"></div>
+  <div class="srow"><label>Date de la course<small>affûtage les 2 dernières semaines</small></label><input data-goal-date type="date" value="${G.date||''}" style="width:150px"></div>${sum}`:'<div class="tip">Sans objectif, les séances visent le 10 km.</div>'}
+  </div>`;
 }
 function viewSettings(){
   const curW=cw(iso(new Date()));
@@ -850,8 +912,9 @@ function viewSettings(){
   <div class="srow"><label>Rameur 2000 m<small>mm:ss, vide pour refaire le test</small></label><input data-set-ergo inputmode="numeric" placeholder="à tester" value="${S.ergo2k?mmss(S.ergo2k):''}"></div>
   </div><div class="sec"><h2>Calendrier</h2></div><div class="card"><div class="srow"><label>Semaine du cycle en cours<small>recale tout le programme</small></label><div class="seg">${[1,2,3,4].map(n=>`<button class="${n===curW?'on':''}" data-cw="${n}">${n}</button>`).join('')}</div></div></div>
   <div class="sec"><h2>Records de force</h2><small>1 rep</small></div><div class="card">
-  ${Object.keys(LIFTS).map(f=>`<div class="srow"><label>${LIFTS[f].name}<small>${LIFTS[f].bw?'lest maximal':'charge maximale'}</small></label><input data-orm="${f}" type="number" inputmode="decimal" step="2.5" value="${kg(S.tm[f]/.95-(LIFTS[f].bw?S.bw:0)).replace(',','.')}"></div>`).join('')}
+  ${Object.keys(LIFTS).map(f=>`<div class="srow"><label>${LIFTS[f].name}<small>${LIFTS[f].bw?'lest maximal':'charge maximale'}</small></label><input data-orm="${f}" type="number" inputmode="decimal" step="2.5" value="${kg(Math.round((S.tm[f]/.95-(LIFTS[f].bw?S.bw:0))*10)/10).replace(',','.')}"></div>`).join('')}
   <button class="ghost" data-act="applyOrm">Recalibrer la force avec ces valeurs</button></div>
+  ${goalSettings()}
   <div class="sec"><h2>Comptes</h2></div><div class="card">
   <button class="ghost" data-act="profiles" style="margin-top:0">Changer de profil ou en ajouter un</button>
   <button class="ghost" data-act="share">Partager DOPER avec un ami</button>
@@ -909,6 +972,7 @@ document.addEventListener('click',e=>{
   if(act==='addProfile'){addProfile();return}
   if(act==='share'){shareApp();return}
   if(act==='widget'){copyWidget();return}
+  if(ds.goal){S.goal=S.goal||{};S.goal.dist=ds.goal==='none'?null:ds.goal;S.goal.time=null;resetRunDrafts();touch();render();return}
   if(act==='delProfile'){openSheet(`<h3>Supprimer ${esc(profName())} ?</h3><p class="lead">Ce profil, ses records et son historique seront effacés de cet appareil.</p><button class="cta" data-act="confirmDelProfile" style="background:var(--red)">Supprimer</button><button class="ghost" data-act="closeSheet">Annuler</button>`);return}
   if(act==='confirmDelProfile'){
     const id=P.active;if(P.list.length<2)return;
@@ -931,6 +995,8 @@ document.addEventListener('click',e=>{
   if(act==='reset'){openSheet('<h3>Tout réinitialiser ?</h3><p class="lead">Records, charges, historique et séances seront effacés.</p><button class="cta" data-act="confirmReset" style="background:var(--red)">Effacer</button><button class="ghost" data-act="closeSheet">Annuler</button>');return}
   if(act==='confirmReset'){S=defaults();touch();$('#sheet').innerHTML='';render();return}
 });
+// Les séances de run non terminées repartent de la nouvelle prescription.
+function resetRunDrafts(){for(const k in S.drafts)if(k.includes('|run-')&&!S.logs[k])delete S.drafts[k]}
 function readProfile(){
   const nm=document.querySelector('[data-set-name]');if(nm){curProfile().name=nm.value.trim().slice(0,24);saveProfiles()}
   const bw=document.querySelector('[data-set-bw]');if(bw){const v=parseFloat(bw.value);if(v>30)S.bw=v}
@@ -943,6 +1009,12 @@ document.addEventListener('change',e=>{
     const x=draft(ui.date,e.target.dataset.id).items[e.target.dataset.loadin];
     if(!isNaN(v)&&v>=0)x.load=Math.round(v*100)/100;
     touch();render();return;
+  }
+  if(e.target.matches('[data-goal-time],[data-goal-date]')){
+    S.goal=S.goal||{};
+    if(e.target.matches('[data-goal-time]'))S.goal.time=parseGoalTime(e.target.value,S.goal.dist);
+    else S.goal.date=e.target.value||null;
+    resetRunDrafts();touch();render();return;
   }
   if(e.target.matches('[data-set-name]')&&S.onboarded){curProfile().name=e.target.value.trim().slice(0,24);saveProfiles();render();return}
   if(e.target.matches('[data-set-bw],[data-set-10k],[data-set-ergo]')&&S.onboarded){
