@@ -287,8 +287,27 @@ const WODS={
 };
 
 /* ---------- state ---------- */
-let S=null, ui={tab:'today',date:iso(new Date()),slot:0,sel:null}, db=null, docRef=null, saveT=null, syncMsg='';
-const LS='apex3';
+let S=null, ui={tab:'today',date:iso(new Date()),slot:0,sel:null}, db=null, docRef=null, saveT=null, syncMsg='', userId=null;
+// Profils : plusieurs comptes sur le même appareil. Le premier garde la clé historique 'apex3'.
+const LS='apex3', LSP='doper-profiles';
+let P=null;
+const lsKey=id=>id==='p1'?LS:LS+':'+id;
+const curProfile=()=>P.list.find(x=>x.id===P.active);
+const profName=()=>(curProfile()&&curProfile().name)||'Athlète';
+function saveProfiles(){try{localStorage.setItem(LSP,JSON.stringify(P))}catch(e){}}
+function loadProfiles(){
+  try{P=JSON.parse(localStorage.getItem(LSP)||'null')}catch(e){}
+  if(!P||!P.list||!P.list.length){
+    let had=false;try{had=!!localStorage.getItem(LS)}catch(e){}
+    // Données existantes d'avant les profils : ce sont celles de Cédric.
+    P={active:'p1',list:[{id:'p1',name:had?'Cédric':''}]};saveProfiles();
+  }
+  if(!curProfile())P.active=P.list[0].id;
+}
+function loadState(){
+  S=null;try{const raw=localStorage.getItem(lsKey(P.active));if(raw)S=JSON.parse(raw)}catch(e){}
+  if(!S)S=defaults();
+}
 function defaults(){
   return {v:3,start:iso(mondayOf(new Date())),bw:75,
     tm:{},orm:{bench:105,ohp:55,pull:52.5,dip:70,squat:110,dead:120},
@@ -300,7 +319,7 @@ function initTM(){
 function hypState(id){if(!S.hyp[id])S.hyp[id]={kg:HYP[id].kg??0,last:null};return S.hyp[id]}
 
 function save(){
-  try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+  try{localStorage.setItem(lsKey(P.active),JSON.stringify(S))}catch(e){}
   if(!docRef)return;
   clearTimeout(saveT);
   saveT=setTimeout(async()=>{
@@ -310,28 +329,60 @@ function save(){
   },700);
 }
 async function boot(){
-  try{const raw=localStorage.getItem(LS);if(raw)S=JSON.parse(raw)}catch(e){}
-  if(!S)S=defaults();
+  loadProfiles();loadState();
   render();
   try{
     if(window.claude&&window.claude.use){
       const [d,u]=await Promise.all([claude.use('db'),claude.use('user')]);
       if(d&&u){
-        const id=await u.id();
-        if(id){
-          db=d;docRef=db.doc('data/users/'+id+'/apex');
-          const snap=await docRef.get();
-          if(snap.exists){
-            const remote=JSON.parse(snap.data().json||'null');
-            const localAt=S._at||0, remoteAt=(remote&&remote._at)||0;
-            if(remote&&remoteAt>=localAt){S=remote;render();}
-            else save();
-          } else if(S.onboarded) save();
-          syncMsg='Synchronisé';
-        }
+        userId=await u.id();
+        if(userId){db=d;await connectSync()}
       }
     }
   }catch(e){syncMsg='Enregistré sur cet appareil'}
+}
+// Synchro claude.ai (quand l'app tourne en artifact) : un document par profil.
+async function connectSync(){
+  if(!db||!userId)return;
+  try{
+    const pid=P.active;
+    docRef=db.doc('data/users/'+userId+'/apex'+(pid==='p1'?'':'-'+pid));
+    const snap=await docRef.get();
+    if(pid!==P.active)return;
+    if(snap.exists){
+      const remote=JSON.parse(snap.data().json||'null');
+      const localAt=S._at||0, remoteAt=(remote&&remote._at)||0;
+      if(remote&&remoteAt>=localAt){S=remote;render();}
+      else save();
+    } else if(S.onboarded) save();
+    syncMsg='Synchronisé';
+  }catch(e){syncMsg='Enregistré sur cet appareil'}
+}
+function flushSave(){
+  if(saveT){clearTimeout(saveT);saveT=null;if(docRef){const r=docRef,j=JSON.stringify(S);r.set({json:j,at:Date.now()}).catch(()=>{})}}
+}
+function switchProfile(id){
+  flushSave();
+  P.active=id;saveProfiles();loadState();docRef=null;
+  ui={tab:'today',date:iso(new Date()),slot:0,sel:null};
+  $('#sheet').innerHTML='';render();scrollTo(0,0);connectSync();
+}
+function addProfile(){
+  const id='p'+Date.now().toString(36);
+  P.list.push({id,name:''});switchProfile(id);
+}
+function profilesSheet(){
+  openSheet(`<h3>Profils</h3><p class="lead">Chaque profil a ses records, son programme et son historique.</p>
+  ${P.list.map(x=>`<button class="chgline" style="width:100%;align-items:center" data-profile="${x.id}"><span style="display:flex;gap:12px;align-items:center"><span class="avatar" style="width:36px;height:36px;font-size:14px${x.id===P.active?'':';border-color:var(--line);color:var(--muted)'}">${esc((x.name||'?').charAt(0).toUpperCase())}</span>${esc(x.name||'Nouveau profil')}</span><span style="color:var(--lime)">${x.id===P.active?'✓ actif':''}</span></button>`).join('')}
+  <button class="cta" data-act="addProfile">Ajouter un profil</button><button class="ghost" data-act="closeSheet">Fermer</button>`);
+}
+async function shareApp(){
+  const url=location.href.split('#')[0].split('?')[0].replace(/index\.html$/,'');
+  if(location.protocol==='file:'){openSheet('<h3>Pas encore en ligne</h3><p class="lead">Mets l’app en ligne (GitHub Pages) pour pouvoir partager son lien.</p><button class="cta" data-act="closeSheet">OK</button>');return}
+  const text='Mon app d’entraînement DOPER. Ouvre le lien dans Safari, puis Partager → Sur l’écran d’accueil.';
+  try{if(navigator.share){await navigator.share({title:'DOPER',text,url});return}}catch(e){if(e&&e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(url)}catch(e){}
+  openSheet(`<h3>Lien copié</h3><p class="lead">Envoie-le à ton ami : ${esc(url)}<br><br>Sur iPhone, il l’ouvre dans Safari puis Partager → Sur l’écran d’accueil. Ses données restent sur son téléphone.</p><button class="cta" data-act="closeSheet">OK</button>`);
 }
 function touch(){S._at=Date.now();save()}
 
@@ -574,7 +625,7 @@ function render(){
 }
 function header(){
   const t=new Date();
-  return `<div class="head"><div class="hello"><small>${JOURS[dow(t)]} ${t.getDate()} ${MOIS[t.getMonth()]}</small><h1>Salut Cédric</h1></div><div class="avatar">C</div></div>`;
+  return `<div class="head"><div class="hello"><small>${JOURS[dow(t)]} ${t.getDate()} ${MOIS[t.getMonth()]}</small><h1>Salut ${esc(profName())}</h1></div><button class="avatar" data-act="profiles" aria-label="Changer de profil">${esc(profName().charAt(0).toUpperCase())}</button></div>`;
 }
 function strip(){
   const mon=mondayOf(parse(ui.date)),today=iso(new Date());
@@ -728,7 +779,8 @@ function viewProgress(){
 }
 function viewSettings(){
   const curW=cw(iso(new Date()));
-  let h=header()+`<div class="sec"><h2>Profil</h2></div><div class="card">
+  let h=header()+`<div class="sec"><h2>Profil</h2><small>${P.list.length>1?P.list.length+' profils':''}</small></div><div class="card">
+  <div class="srow"><label>Prénom<small>affiché dans l’app</small></label><input data-set-name value="${esc(profName())}" style="width:140px"></div>
   <div class="srow"><label>Poids de corps<small>sert au calcul des lests</small></label><input data-set-bw type="number" inputmode="decimal" step="0.5" value="${S.bw}"></div>
   <div class="srow"><label>Record 10 km<small>mm:ss, recalibre toutes les allures</small></label><input data-set-10k inputmode="numeric" value="${mmss(S.p10*10)}"></div>
   <div class="srow"><label>Rameur 2000 m<small>mm:ss, vide pour refaire le test</small></label><input data-set-ergo inputmode="numeric" placeholder="à tester" value="${S.ergo2k?mmss(S.ergo2k):''}"></div>
@@ -736,7 +788,11 @@ function viewSettings(){
   <div class="sec"><h2>Records de force</h2><small>1 rep</small></div><div class="card">
   ${Object.keys(LIFTS).map(f=>`<div class="srow"><label>${LIFTS[f].name}<small>${LIFTS[f].bw?'lest maximal':'charge maximale'}</small></label><input data-orm="${f}" type="number" inputmode="decimal" step="2.5" value="${kg(S.tm[f]/.95-(LIFTS[f].bw?S.bw:0)).replace(',','.')}"></div>`).join('')}
   <button class="ghost" data-act="applyOrm">Recalibrer la force avec ces valeurs</button></div>
+  <div class="sec"><h2>Comptes</h2></div><div class="card">
+  <button class="ghost" data-act="profiles" style="margin-top:0">Changer de profil ou en ajouter un</button>
+  <button class="ghost" data-act="share">Partager DOPER avec un ami</button></div>
   <button class="ghost" data-act="reset" style="color:var(--red);border-color:rgba(255,97,97,.3);margin-top:22px">Tout réinitialiser</button>
+  ${P.list.length>1?'<button class="ghost" data-act="delProfile" style="color:var(--red);border-color:rgba(255,97,97,.3)">Supprimer ce profil</button>':''}
   <div class="sync">${syncMsg||'Enregistré sur cet appareil'}</div>`;
   return h;
 }
@@ -744,10 +800,12 @@ function onboarding(){
   const f=Object.keys(LIFTS);
   return `<div class="onb"><h1>On cale ton point de départ</h1><p>Tes records actuels sur une répétition. Les charges de chaque séance en découlent, puis s'ajustent selon ce que tu réalises vraiment.</p>
   <div class="card">${f.map(k=>`<div class="srow"><label>${LIFTS[k].name}<small>${LIFTS[k].bw?'lest maximal en kg':'charge maximale en kg'}</small></label><input data-orm="${k}" type="number" inputmode="decimal" step="2.5" value="${S.orm[k]}"></div>`).join('')}</div>
-  <div class="card"><div class="srow"><label>Poids de corps</label><input data-set-bw type="number" step="0.5" value="${S.bw}"></div>
+  <div class="card"><div class="srow"><label>Prénom</label><input data-set-name value="${esc(curProfile().name||'')}" placeholder="Ton prénom" autocomplete="given-name" style="width:140px"></div>
+  <div class="srow"><label>Poids de corps</label><input data-set-bw type="number" step="0.5" value="${S.bw}"></div>
   <div class="srow"><label>Record 10 km<small>mm:ss</small></label><input data-set-10k inputmode="numeric" value="${mmss(S.p10*10)}"></div>
   <div class="srow"><label>Semaine du cycle<small>1 si tu démarres</small></label><div class="seg">${[1,2,3,4].map(n=>`<button class="${n===cw(iso(new Date()))?'on':''}" data-cw="${n}">${n}</button>`).join('')}</div></div></div>
-  <button class="cta" data-act="start">Démarrer le programme</button></div>`;
+  <button class="cta" data-act="start">Démarrer le programme</button>
+  ${P.list.length>1?'<button class="ghost" data-act="profiles">Changer de profil</button>':''}</div>`;
 }
 
 /* ---------- sheet ---------- */
@@ -781,6 +839,16 @@ document.addEventListener('click',e=>{
   if(ds.cw){if(!S.onboarded){document.querySelectorAll('[data-orm]').forEach(inp=>{const v=parseFloat(inp.value);if(!isNaN(v))S.orm[inp.dataset.orm]=v});readProfile();}const n=+ds.cw;S.start=iso(addDays(mondayOf(new Date()),-7*(n-1)));S.drafts={};touch();render();return}
   const act=ds.act;
   if(act==='closeSheet'){closeSheet();return}
+  if(ds.profile){if(ds.profile===P.active){closeSheet()}else switchProfile(ds.profile);return}
+  if(act==='profiles'){profilesSheet();return}
+  if(act==='addProfile'){addProfile();return}
+  if(act==='share'){shareApp();return}
+  if(act==='delProfile'){openSheet(`<h3>Supprimer ${esc(profName())} ?</h3><p class="lead">Ce profil, ses records et son historique seront effacés de cet appareil.</p><button class="cta" data-act="confirmDelProfile" style="background:var(--red)">Supprimer</button><button class="ghost" data-act="closeSheet">Annuler</button>`);return}
+  if(act==='confirmDelProfile'){
+    const id=P.active;if(P.list.length<2)return;
+    flushSave();try{localStorage.removeItem(lsKey(id))}catch(e){}
+    P.list=P.list.filter(x=>x.id!==id);switchProfile(P.list[0].id);return;
+  }
   if(act==='fit'){downloadFit(ds.id);return}
   if(act==='finish'){
     if(SESSIONS[ds.id].kind==='hyrox'){const t=parseMMSS($('#wodtime')?.value);if(t)draft(ui.date,ds.id).run.time=t}
@@ -798,6 +866,7 @@ document.addEventListener('click',e=>{
   if(act==='confirmReset'){S=defaults();touch();$('#sheet').innerHTML='';render();return}
 });
 function readProfile(){
+  const nm=document.querySelector('[data-set-name]');if(nm){curProfile().name=nm.value.trim().slice(0,24);saveProfiles()}
   const bw=document.querySelector('[data-set-bw]');if(bw){const v=parseFloat(bw.value);if(v>30)S.bw=v}
   const t=document.querySelector('[data-set-10k]');if(t){const s=parseMMSS(t.value);if(s&&s>900&&s<4800)S.p10=s/10}
   const er=document.querySelector('[data-set-ergo]');if(er){const s=parseMMSS(er.value);S.ergo2k=s&&s>300?s:null}
@@ -809,6 +878,7 @@ document.addEventListener('change',e=>{
     if(!isNaN(v)&&v>=0)x.load=Math.round(v*100)/100;
     touch();render();return;
   }
+  if(e.target.matches('[data-set-name]')&&S.onboarded){curProfile().name=e.target.value.trim().slice(0,24);saveProfiles();render();return}
   if(e.target.matches('[data-set-bw],[data-set-10k],[data-set-ergo]')&&S.onboarded){
     const oldBw=S.bw;readProfile();
     if(S.bw!==oldBw){for(const f in LIFTS)if(LIFTS[f].bw)S.tm[f]+=(S.bw-oldBw)*.95}

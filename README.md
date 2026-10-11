@@ -15,6 +15,11 @@ python3 -m http.server 8000
 
 Les données sont stockées dans `localStorage` (clé `apex3`, conservée depuis APEX pour ne pas perdre les données). Publiée comme artifact claude.ai, l'app synchronise aussi l'état via `window.claude.use('db')` / `('user')` ; hors claude.ai ce bloc est ignoré.
 
+## Profils et partage
+
+- **Profils** : toucher l'avatar en haut à droite pour passer d'un profil à l'autre ou en ajouter un. Chaque profil a son prénom, ses records (charges max, poids, 10 km), son programme et son historique. Index des profils dans `doper-profiles` ; le premier profil garde la clé `apex3`, les suivants `apex3:<id>`.
+- **Partager** : Réglages → « Partager DOPER avec un ami » envoie le lien de l'app. Sur son téléphone, l'ami crée son propre profil ; ses données restent chez lui.
+
 ## Installer sur iPhone
 
 DOPER est une PWA : elle s'installe depuis Safari et s'ouvre en plein écran, hors ligne.
