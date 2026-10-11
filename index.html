@@ -408,23 +408,24 @@ function doperWidget(CFG){
     const shown=small?list.slice(0,2):list;
     shown.forEach((x,i)=>{
       if(list.length>1){const sl=w.addText(x.slot);sl.font=Font.mediumSystemFont(10);sl.textColor=muted}
-      const t=w.addText(x.name);t.font=Font.boldSystemFont(small?14:17);t.textColor=white;t.lineLimit=small?2:1;t.minimumScaleFactor=.75;
+      const t=w.addText(small&&x.short?x.short:x.name);t.font=Font.boldSystemFont(small?14:17);t.textColor=white;t.lineLimit=small&&list.length>1?1:small?2:1;t.minimumScaleFactor=small?.65:.75;
       if(i<shown.length-1)w.addSpacer(4);
     });
     if(!small){const ph=w.addText(CFG.waves[cw-1]);ph.font=Font.systemFont(11);ph.textColor=lime;}
   }
   w.addSpacer();
-  const q=w.addText(quote);q.font=Font.italicSystemFont(small?11:12);q.textColor=muted;q.lineLimit=small?3:2;q.minimumScaleFactor=.8;
+  const q=w.addText(quote);q.font=Font.italicSystemFont(small?11:12);q.textColor=muted;q.lineLimit=small&&list.length>1?2:small?3:2;q.minimumScaleFactor=.8;
   const tomorrow=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,5);
   w.refreshAfterDate=tomorrow;
   if(config.runsInWidget)Script.setWidget(w);else w.presentMedium();
   Script.complete();
 }
+const WIDGET_SHORT={'force-haut':'Force haut','volume-haut':'Volume haut','force-bas':'Force bas','ergo-renfo':'Rameur + renfo','volume-dos':'Volume dos','run-frac':'Fractionné','run-z2':'Zone 2','run-long':'Sortie longue','hyrox':'WOD Hyrox'};
 function widgetScript(){
   const url=location.href.split('#')[0].split('?')[0].replace(/index\.html$/,'');
   const CFG={name:profName(),start:S.start,url,days:JOURS,
     waves:[1,2,3,4].map(n=>'Semaine '+n+', '+WAVE[n].name.toLowerCase()),
-    schedule:SCHEDULE.map(l=>l.map(x=>({slot:x.slot,name:SESSIONS[x.id].name})))};
+    schedule:SCHEDULE.map(l=>l.map(x=>({slot:x.slot,name:SESSIONS[x.id].name,short:WIDGET_SHORT[x.id]})))};
   return `// DOPER, widget écran d'accueil pour l'app Scriptable.\n// Généré pour ${CFG.name}. Si tu changes la semaine du cycle dans DOPER, recopie le script.\nconst CFG=${JSON.stringify(CFG)};\n(${doperWidget.toString()})(CFG);\n`;
 }
 async function copyWidget(){
