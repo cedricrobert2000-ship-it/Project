@@ -376,6 +376,68 @@ function profilesSheet(){
   ${P.list.map(x=>`<button class="chgline" style="width:100%;align-items:center" data-profile="${x.id}"><span style="display:flex;gap:12px;align-items:center"><span class="avatar" style="width:36px;height:36px;font-size:14px${x.id===P.active?'':';border-color:var(--line);color:var(--muted)'}">${esc((x.name||'?').charAt(0).toUpperCase())}</span>${esc(x.name||'Nouveau profil')}</span><span style="color:var(--lime)">${x.id===P.active?'✓ actif':''}</span></button>`).join('')}
   <button class="cta" data-act="addProfile">Ajouter un profil</button><button class="ghost" data-act="closeSheet">Fermer</button>`);
 }
+/* ---------- widget iPhone (app Scriptable) ---------- */
+// Cette fonction est copiée telle quelle dans le script Scriptable : elle ne doit utiliser
+// que CFG et l'API Scriptable, aucune variable de l'app.
+function doperWidget(CFG){
+  const GO=['Le meilleur moment, c’est maintenant.','Une séance de plus que hier.','Ton futur toi te remercie déjà.','Pas de motivation ? Discipline.','Les charges ne vont pas se soulever toutes seules.','Petit pas, gros résultats.','Tu ne regretteras jamais une séance faite.','Fais-le pour la version de toi en semaine 4.','Le confort ne construit rien.','Échauffe-toi, le reste suivra.','Personne ne viendra le faire à ta place.','Commence. L’envie arrive en route.','Aujourd’hui compte.','Fort n’est pas un talent, c’est une habitude.','Encore une brique au mur.','La régularité bat l’intensité.','Moins d’excuses, plus de séries.','Ce que tu fais aujourd’hui, tu le récoltes dans 4 semaines.','Pas parfait, mais fait.','Respire, serre, pousse.','Le plus dur, c’est de lacer tes chaussures.','Chaque rep te rapproche du record.','Tu l’as prévu, maintenant tu le fais.','Gagne la journée.','Le chrono ne ment pas, toi non plus.'];
+  const REST=['Repos : c’est là que les muscles grandissent.','Récupère fort, demain on repart.','Dors bien, mange bien, reviens plus fort.','Le repos fait partie du programme.','Marche, mobilité, et rien de plus.','Aujourd’hui on recharge les batteries.'];
+  const now=new Date(),dow=(now.getDay()+6)%7;
+  const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow);
+  const [y,m,d]=CFG.start.split('-').map(Number),start=new Date(y,m-1,d);
+  const wk=Math.max(0,Math.floor((mon-start)/(7*864e5)+.01)),cw=wk%4+1;
+  const day=Math.floor((now-new Date(now.getFullYear(),0,0))/864e5);
+  const list=CFG.schedule[dow],rest=!list.length;
+  const pool=rest?REST:GO,quote=pool[(day*7+CFG.name.length)%pool.length];
+  const fam=config.widgetFamily||'medium',small=fam==='small';
+  const lime=new Color('#d4f24a'),muted=new Color('#8d8d88'),white=new Color('#f4f4f2');
+  const w=new ListWidget();
+  w.backgroundColor=new Color('#000000');
+  w.setPadding(14,16,14,16);
+  w.url=CFG.url;
+  const top=w.addStack();top.centerAlignContent();
+  const bolt=top.addImage(SFSymbol.named('bolt.fill').image);bolt.imageSize=new Size(14,14);bolt.tintColor=lime;
+  top.addSpacer(5);
+  const brand=top.addText('DOPER');brand.font=Font.boldSystemFont(12);brand.textColor=lime;
+  top.addSpacer();
+  const wl=top.addText(rest?CFG.days[dow]:'S'+cw+'/4');wl.font=Font.mediumSystemFont(11);wl.textColor=muted;
+  w.addSpacer(8);
+  if(rest){
+    const t=w.addText('Repos');t.font=Font.boldSystemFont(small?20:22);t.textColor=white;
+  } else {
+    const shown=small?list.slice(0,2):list;
+    shown.forEach((x,i)=>{
+      if(list.length>1){const sl=w.addText(x.slot);sl.font=Font.mediumSystemFont(10);sl.textColor=muted}
+      const t=w.addText(x.name);t.font=Font.boldSystemFont(small?14:17);t.textColor=white;t.lineLimit=small?2:1;t.minimumScaleFactor=.75;
+      if(i<shown.length-1)w.addSpacer(4);
+    });
+    if(!small){const ph=w.addText(CFG.waves[cw-1]);ph.font=Font.systemFont(11);ph.textColor=lime;}
+  }
+  w.addSpacer();
+  const q=w.addText(quote);q.font=Font.italicSystemFont(small?11:12);q.textColor=muted;q.lineLimit=small?3:2;q.minimumScaleFactor=.8;
+  const tomorrow=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,5);
+  w.refreshAfterDate=tomorrow;
+  if(config.runsInWidget)Script.setWidget(w);else w.presentMedium();
+  Script.complete();
+}
+function widgetScript(){
+  const url=location.href.split('#')[0].split('?')[0].replace(/index\.html$/,'');
+  const CFG={name:profName(),start:S.start,url,days:JOURS,
+    waves:[1,2,3,4].map(n=>'Semaine '+n+', '+WAVE[n].name.toLowerCase()),
+    schedule:SCHEDULE.map(l=>l.map(x=>({slot:x.slot,name:SESSIONS[x.id].name})))};
+  return `// DOPER, widget écran d'accueil pour l'app Scriptable.\n// Généré pour ${CFG.name}. Si tu changes la semaine du cycle dans DOPER, recopie le script.\nconst CFG=${JSON.stringify(CFG)};\n(${doperWidget.toString()})(CFG);\n`;
+}
+async function copyWidget(){
+  const code=widgetScript();let ok=false;
+  try{await navigator.clipboard.writeText(code);ok=true}catch(e){}
+  openSheet(`<h3>Widget iPhone</h3><p class="lead">${ok?'Le script est copié.':'Copie le script ci-dessous.'} Ensuite :</p>
+  <div class="chgline"><span>1</span><span>Installe l’app gratuite Scriptable (App Store)</span></div>
+  <div class="chgline"><span>2</span><span>Dans Scriptable, touche +, colle le script, nomme-le DOPER</span></div>
+  <div class="chgline"><span>3</span><span>Appui long sur l’écran d’accueil, +, Scriptable, choisis la taille</span></div>
+  <div class="chgline"><span>4</span><span>Appui long sur le widget, Modifier, Script : DOPER</span></div>
+  ${ok?'':`<textarea readonly style="width:100%;height:120px;margin-top:12px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:11px">${esc(code)}</textarea>`}
+  <button class="cta" data-act="closeSheet">OK</button>`);
+}
 async function shareApp(){
   const url=location.href.split('#')[0].split('?')[0].replace(/index\.html$/,'');
   if(location.protocol==='file:'){openSheet('<h3>Pas encore en ligne</h3><p class="lead">Mets l’app en ligne (GitHub Pages) pour pouvoir partager son lien.</p><button class="cta" data-act="closeSheet">OK</button>');return}
@@ -790,7 +852,8 @@ function viewSettings(){
   <button class="ghost" data-act="applyOrm">Recalibrer la force avec ces valeurs</button></div>
   <div class="sec"><h2>Comptes</h2></div><div class="card">
   <button class="ghost" data-act="profiles" style="margin-top:0">Changer de profil ou en ajouter un</button>
-  <button class="ghost" data-act="share">Partager DOPER avec un ami</button></div>
+  <button class="ghost" data-act="share">Partager DOPER avec un ami</button>
+  <button class="ghost" data-act="widget">Widget pour l’écran d’accueil</button></div>
   <button class="ghost" data-act="reset" style="color:var(--red);border-color:rgba(255,97,97,.3);margin-top:22px">Tout réinitialiser</button>
   ${P.list.length>1?'<button class="ghost" data-act="delProfile" style="color:var(--red);border-color:rgba(255,97,97,.3)">Supprimer ce profil</button>':''}
   <div class="sync">${syncMsg||'Enregistré sur cet appareil'}</div>`;
@@ -843,6 +906,7 @@ document.addEventListener('click',e=>{
   if(act==='profiles'){profilesSheet();return}
   if(act==='addProfile'){addProfile();return}
   if(act==='share'){shareApp();return}
+  if(act==='widget'){copyWidget();return}
   if(act==='delProfile'){openSheet(`<h3>Supprimer ${esc(profName())} ?</h3><p class="lead">Ce profil, ses records et son historique seront effacés de cet appareil.</p><button class="cta" data-act="confirmDelProfile" style="background:var(--red)">Supprimer</button><button class="ghost" data-act="closeSheet">Annuler</button>`);return}
   if(act==='confirmDelProfile'){
     const id=P.active;if(P.list.length<2)return;

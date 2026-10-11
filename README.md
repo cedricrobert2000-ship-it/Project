@@ -20,6 +20,10 @@ Les données sont stockées dans `localStorage` (clé `apex3`, conservée depuis
 - **Profils** : toucher l'avatar en haut à droite pour passer d'un profil à l'autre ou en ajouter un. Chaque profil a son prénom, ses records (charges max, poids, 10 km), son programme et son historique. Index des profils dans `doper-profiles` ; le premier profil garde la clé `apex3`, les suivants `apex3:<id>`.
 - **Partager** : Réglages → « Partager DOPER avec un ami » envoie le lien de l'app. Sur son téléphone, l'ami crée son propre profil ; ses données restent chez lui.
 
+## Widget iPhone
+
+Les web apps ne peuvent pas créer de widget iOS : DOPER passe par l'app gratuite **Scriptable**. Réglages → « Widget pour l'écran d'accueil » copie un script pré-rempli (prénom, début du cycle, lien de l'app). Le widget affiche la séance du jour, la semaine du cycle et une phrase de motivation qui change chaque jour ; le toucher ouvre DOPER. Le code du widget est `doperWidget()` dans `index.html`.
+
 ## Installer sur iPhone
 
 DOPER est une PWA : elle s'installe depuis Safari et s'ouvre en plein écran, hors ligne.
