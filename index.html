@@ -639,7 +639,7 @@ function strip(){
 }
 function hero(){
   const w=cw(ui.date),W=WAVE[w];
-  return `<div class="hero"><div class="hero-ic"><svg viewBox="0 0 100 100" fill="none" stroke="var(--lime)" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M27 18H49A32 32 0 0 1 49 82H27Z" stroke-width="11"/><polyline points="12,50 34,50 41,36 51,64 59,42 64,50 88,50" stroke-width="6.5"/></svg></div><div><b>Semaine ${w} sur 4, ${W.name.toLowerCase()}</b><span>Cycle ${cycleN(ui.date)}. Les charges suivent tes séances réelles.</span></div></div>`;
+  return `<div class="hero"><div class="hero-ic"><svg viewBox="0 0 24 24" fill="var(--lime)" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div><div><b>Semaine ${w} sur 4, ${W.name.toLowerCase()}</b><span>Cycle ${cycleN(ui.date)}. Les charges suivent tes séances réelles.</span></div></div>`;
 }
 function viewToday(){
   const list=sessionsOf(ui.date);
