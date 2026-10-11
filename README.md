@@ -25,7 +25,7 @@ Les données sont stockées dans `localStorage` (clé `apex3`, conservée depuis
 DOPER est une PWA : elle s'installe depuis Safari et s'ouvre en plein écran, hors ligne.
 
 1. Héberger le dépôt avec GitHub Pages : Settings → Pages → Source « Deploy from a branch », branche `claude/apex-musculation-app-15najw`, dossier `/ (root)`.
-2. Sur l'iPhone, ouvrir `https://cedricrobert2000-ship-it.github.io/Snoop/` dans **Safari**.
+2. Sur l'iPhone, ouvrir `https://cedricrobert2000-ship-it.github.io/Project/` dans **Safari**.
 3. Partager → « Sur l'écran d'accueil » → Ajouter.
 
 Pour publier une mise à jour, pousser sur la branche puis incrémenter `VERSION` dans `sw.js` ; l'app se met à jour à l'ouverture suivante (réseau d'abord).
