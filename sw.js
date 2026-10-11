@@ -1,5 +1,5 @@
 // Bump VERSION à chaque mise en ligne pour forcer la mise à jour du cache.
-const VERSION = 'doper-v8';
+const VERSION = 'doper-v9';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

@@ -396,11 +396,12 @@ function doperWidget(CFG){
   w.setPadding(14,16,14,16);
   w.url=CFG.url;
   const top=w.addStack();top.centerAlignContent();
-  const bolt=top.addImage(SFSymbol.named('bolt.fill').image);bolt.imageSize=new Size(14,14);bolt.tintColor=lime;
-  top.addSpacer(5);
-  const brand=top.addText('DOPER');brand.font=Font.boldSystemFont(12);brand.textColor=lime;
+  const badge=top.addStack();badge.size=new Size(22,22);badge.cornerRadius=11;badge.backgroundColor=lime;badge.centerAlignContent();
+  const bolt=badge.addImage(SFSymbol.named('bolt.fill').image);bolt.imageSize=new Size(12,12);bolt.tintColor=new Color('#000000');
+  top.addSpacer(6);
+  const brand=top.addText('DOPER');brand.font=Font.heavySystemFont(13);brand.textColor=lime;
   top.addSpacer();
-  const wl=top.addText(rest?CFG.days[dow]:'S'+cw+'/4');wl.font=Font.mediumSystemFont(11);wl.textColor=muted;
+  const wl=top.addText(rest?(small?CFG.days[dow].slice(0,3)+'.':CFG.days[dow]):'S'+cw+'/4');wl.font=Font.mediumSystemFont(11);wl.textColor=muted;
   w.addSpacer(8);
   if(rest){
     const t=w.addText('Repos');t.font=Font.boldSystemFont(small?20:22);t.textColor=white;
