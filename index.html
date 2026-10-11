@@ -225,8 +225,52 @@ const LIFTS={
   pull:{name:'Tractions lestées',inc:1.25,bw:true},
   dip:{name:'Dips lestés',inc:1.25,bw:true},
   squat:{name:'Squat barre',inc:2.5,bw:false},
-  dead:{name:'Soulevé de terre',inc:2.5,bw:false}
+  dead:{name:'Soulevé de terre',inc:2.5,bw:false},
+  snatch:{name:'Arraché',inc:1,bw:false,oly:true},
+  cj:{name:'Épaulé-jeté',inc:1,bw:false,oly:true}
 };
+// Haltéro : séries courtes et techniques, sans série au max.
+const WAVE_OLY={1:{sets:5,reps:3,pct:.75},2:{sets:5,reps:2,pct:.80},3:{sets:6,reps:1,pct:.86},4:{sets:3,reps:2,pct:.65}};
+const DEF_ORM={bench:105,ohp:55,pull:52.5,dip:70,squat:110,dead:120,snatch:60,cj:80};
+/* ---------- objectif force ---------- */
+const DISC={
+  force:{label:'Force',long:'Force athlétique',lifts:['squat','bench','dead'],total:true},
+  haltero:{label:'Haltéro',long:'Haltérophilie',lifts:['snatch','cj'],total:true},
+  street:{label:'Street',long:'Streetlifting',lifts:['pull','dip','squat'],total:true}
+};
+const disc=()=>S.sgoal&&DISC[S.sgoal.disc]?S.sgoal.disc:null;
+// Mouvements affichés : les 6 de base, plus l'haltéro si c'est la discipline ou s'il a déjà été travaillé.
+const shownLifts=()=>Object.keys(LIFTS).filter(f=>!LIFTS[f].oly||disc()==='haltero'||(S.hist[f]&&S.hist[f].length));
+const oneRM=f=>S.tm[f]/.95-(LIFTS[f].bw?S.bw:0);
+function ensureLifts(){
+  for(const k in LIFTS){
+    if(S.orm[k]==null)S.orm[k]=DEF_ORM[k];
+    if(S.tm[k]==null&&S.onboarded)S.tm[k]=Math.round((S.orm[k]+(LIFTS[k].bw?S.bw:0))*.95*100)/100;
+  }
+}
+function sgoalInfo(dateStr){
+  const d=disc();if(!d)return null;
+  const G=S.sgoal,T=G.targets||{};
+  let daysTo=null;if(G.date)daysTo=Math.round((parse(G.date)-parse(dateStr||iso(new Date())))/DAY_MS);
+  const lifts=DISC[d].lifts.map(f=>({f,cur:oneRM(f),target:T[f]||null}));
+  const tot=lifts.reduce((a,x)=>a+x.cur,0),ttot=lifts.every(x=>x.target)?lifts.reduce((a,x)=>a+x.target,0):null;
+  return {d,lifts,daysTo,taper:daysTo!=null&&daysTo>=0&&daysTo<=10,tot,ttot};
+}
+// Séances de force selon la discipline visée : les mouvements de la discipline passent en principal.
+function sessItems(id){
+  const base=SESSIONS[id].items||[],d=disc();
+  if(!d||(id!=='force-haut'&&id!=='force-bas'))return base;
+  if(d==='force'){
+    if(id==='force-haut')return [base[0],{f:'pull',role:'sec'},{f:'ohp',role:'sec'},{f:'dip',role:'sec'}];
+    return [base[0],{f:'dead',role:'main',tip:'Dos verrouillé, barre collée aux jambes.'},{h:'bulg'},{h:'lcurl'}];
+  }
+  if(d==='street'){
+    if(id==='force-haut')return [{f:'pull',role:'main',tip:'Menton au-dessus de la barre, extension complète en bas.'},{f:'dip',role:'main',tip:'Épaules sous les coudes en bas, verrouillage en haut.'},{f:'bench',role:'sec'},{f:'ohp',role:'sec'}];
+    return base;
+  }
+  if(id==='force-haut')return [{f:'snatch',role:'main',tip:'Barre près du corps, extension complète, réception active.'},{f:'bench',role:'sec'},{f:'pull',role:'sec'},{f:'ohp',role:'sec'}];
+  return [{f:'cj',role:'main',tip:'Épaulé propre, puis jeté : dip court, drive vertical.'},base[0],{h:'bulg'},{h:'lcurl'}];
+}
 const WAVE={
   1:{sets:5,reps:5,pct:.80,name:'Volume lourd',rest:'2 min 30 de récup'},
   2:{sets:5,reps:4,pct:.85,name:'Intensification',rest:'3 min de récup'},
@@ -308,13 +352,15 @@ function loadProfiles(){
 function loadState(){
   S=null;try{const raw=localStorage.getItem(lsKey(P.active));if(raw)S=JSON.parse(raw)}catch(e){}
   if(!S)S=defaults();
+  ensureLifts();
 }
 function defaults(){
   return {v:3,start:iso(mondayOf(new Date())),bw:75,
-    tm:{},orm:{bench:105,ohp:55,pull:52.5,dip:70,squat:110,dead:120},
+    tm:{},orm:{...DEF_ORM},
     hyp:{},p10:240,ergo2k:null,logs:{},drafts:{},hist:{},onboarded:false};
 }
 function initTM(){
+  ensureLifts();
   for(const k in LIFTS){const one=S.orm[k]+(LIFTS[k].bw?S.bw:0);S.tm[k]=Math.round(one*.95*100)/100;}
 }
 function hypState(id){if(!S.hyp[id])S.hyp[id]={kg:HYP[id].kg??0,last:null};return S.hyp[id]}
@@ -460,13 +506,15 @@ const key=(d,id)=>d+'|'+id;
 
 /* ---------- prescriptions ---------- */
 function forcePresc(it,dateStr){
-  const w=WAVE[cw(dateStr)], L=LIFTS[it.f];
+  const L=LIFTS[it.f],w=(L.oly?WAVE_OLY:WAVE)[cw(dateStr)];
   let sets=w.sets;
   if(it.role==='sec')sets=Math.max(3,w.sets-1);
   if(it.role==='dead')sets=3;
+  const sg=sgoalInfo(dateStr),taper=sg&&sg.taper&&DISC[sg.d].lifts.includes(it.f);
+  if(taper)sets=Math.max(2,sets-2);// affûtage avant la compétition
   const total=S.tm[it.f]*w.pct;
-  let load=L.bw?Math.max(0,r25(total-S.bw)):r25(total);
-  return {sets,reps:w.reps,load,amrap:cw(dateStr)<4,bw:L.bw};
+  let load=L.bw?Math.max(0,r25(total-S.bw)):L.oly?Math.round(total):r25(total);
+  return {sets,reps:w.reps,load,amrap:cw(dateStr)<4&&!L.oly&&!taper,bw:L.bw,taper};
 }
 function hypPresc(id,dateStr){
   const H=HYP[id],st=hypState(id),de=cw(dateStr)===4;
@@ -628,7 +676,7 @@ function draft(d,id){
   const k=key(d,id);
   if(!S.drafts[k]){
     const ses=SESSIONS[id],dr={items:{},run:{},rpe:null};
-    (ses.items||[]).forEach(it=>{
+    sessItems(id).forEach(it=>{
       if(it.f){const p=forcePresc(it,d);dr.items[it.f]={load:p.load,sets:Array(p.sets).fill(null)}}
       else{const p=hypPresc(it.h,d);dr.items[it.h]={load:p.load,sets:Array(p.sets).fill(null)}}
     });
@@ -636,7 +684,10 @@ function draft(d,id){
     if(ses.kind==='ergo'){const p=ergoPresc(d);dr.run.ergo=p.test?480:Math.round(p.a)}
     S.drafts[k]=dr;
   }
-  return S.drafts[k];
+  // Discipline changée depuis : on complète les mouvements manquants.
+  const dr=S.drafts[k];
+  sessItems(id).forEach(it=>{const x=it.f||it.h;if(!dr.items[x]){const p=it.f?forcePresc(it,d):hypPresc(it.h,d);dr.items[x]={load:p.load,sets:Array(p.sets).fill(null)}}});
+  return dr;
 }
 
 /* ---------- finishing: progression engine ---------- */
@@ -652,7 +703,7 @@ function finish(d,id){
   const prev=S.logs[k];
   if(prev){applyDelta(prev.delta,-1);if(prev.ergoWasNull&&ses.kind==='ergo')S.ergo2k=null;if(prev.lastPrev)for(const h in prev.lastPrev)hypState(h).last=prev.lastPrev[h];}
   const delta={tm:{},hyp:{},p10:0,ergo:0},lines=[],lastPrev={};
-  (ses.items||[]).forEach(it=>{
+  sessItems(id).forEach(it=>{
     const x=dr.items[it.f||it.h];
     if(it.f){
       const L=LIFTS[it.f],p=forcePresc(it,d),done=x.sets.map(v=>v??0);
@@ -665,7 +716,7 @@ function finish(d,id){
         else if(miss>=2)dt=-2*L.inc;
         const catchUp=e1*.92-(S.tm[it.f]+dt);
         if(catchUp>0)dt+=Math.round(catchUp/L.inc)*L.inc;
-        if(miss===0&&x.load>p.load){const need=total/WAVE[w].pct;if(need>S.tm[it.f]+dt)dt=need-S.tm[it.f];}
+        if(miss===0&&x.load>p.load){const need=total/(L.oly?WAVE_OLY:WAVE)[w].pct;if(need>S.tm[it.f]+dt)dt=need-S.tm[it.f];}
       }
       if(done.some(v=>v>0)){S.hist[it.f]=(S.hist[it.f]||[]).filter(q=>q.d!==d);S.hist[it.f].push({d,e1:Math.round(e1*10)/10});}
       S.tm[it.f]+=dt;delta.tm[it.f]=dt;
@@ -755,7 +806,7 @@ function viewToday(){
   if(ses.kind==='run')h+=runCard(id);
   if(ses.kind==='ergo')h+=ergoCard();
   if(ses.kind==='hyrox')h+=hyroxCard(id);
-  (ses.items||[]).forEach(it=>{h+=it.f?forceCard(it,id):hypCard(it.h,id)});
+  sessItems(id).forEach(it=>{h+=it.f?forceCard(it,id):hypCard(it.h,id)});
   h+=`<button class="cta" data-act="finish" data-id="${id}">${S.logs[key(ui.date,id)]?'Réenregistrer la séance':'Terminer la séance'}</button>`;
   return h;
 }
@@ -799,13 +850,15 @@ function cycleHTML(it,id){
 }
 function forceCard(it,id){
   const p=forcePresc(it,ui.date),L=LIFTS[it.f],x=draft(ui.date,id).items[it.f],W=WAVE[cw(ui.date)];
+  const T=disc()&&S.sgoal.targets?S.sgoal.targets[it.f]:null;
+  const gl=T?`<div class="tip" style="border-left-color:var(--lime)">Objectif ${L.bw?'+':''}${kg(T)} kg, actuel ${L.bw?'+':''}${kg(r25(oneRM(it.f)))} kg${p.taper?' · affûtage':''}</div>`:'';
   const changed=x.load!==p.load;
   return `<div class="card"><div class="ex-top"><div><div class="ex-name">${L.name}</div><div class="ex-meta">${p.sets} × ${p.reps}${p.amrap?', dernière au max':''}, ${W.rest}</div></div><span class="badge b-force">Force</span></div>
   <div class="load"><div>${loadInput(it.f,id,x.load,L.bw)}<div class="load-note">${changed?'Prévu '+(L.bw?'+':'')+kg(p.load)+' kg':(L.bw?'Lest, poids de corps '+kg(S.bw)+' kg':'Charge prévue, touche pour modifier')}</div></div></div>
   ${prevHTML(id,it.f,L.bw,'reps')}
   ${setsHTML(x,i=>({show:p.reps,min:p.reps,amrap:p.amrap&&i===p.sets-1}),id,it.f,'reps')}
   ${cycleHTML(it,id)}
-  ${it.tip?`<div class="tip">${it.tip}</div>`:''}</div>`;
+  ${gl}${it.tip?`<div class="tip">${it.tip}</div>`:''}</div>`;
 }
 function hypCard(hid,id){
   const H=HYP[hid],p=hypPresc(hid,ui.date),x=draft(ui.date,id).items[hid];
@@ -871,8 +924,8 @@ function spark(arr,get,invert){
   return `<svg viewBox="0 0 100 40" preserveAspectRatio="none"><polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--lime)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
 }
 function viewProgress(){
-  let h=header()+`<div class="sec"><h2>Force</h2><small>1RM estimé</small></div><div class="pgrid">`;
-  for(const f in LIFTS){
+  let h=header()+sgoalProgress()+`<div class="sec"><h2>Force</h2><small>1RM estimé</small></div><div class="pgrid">`;
+  for(const f of shownLifts()){
     const L=LIFTS[f],one=S.tm[f]/.95-(L.bw?S.bw:0),start=S.orm[f];
     const diff=Math.round((one-start)*10)/10;
     h+=`<div class="pcard"><small>${L.name}</small><b class="num">${L.bw?'+':''}${kg(r25(one))} kg</b><div class="sub">${diff>0?'+'+kg(diff)+' kg depuis le départ':diff<0?kg(diff)+' kg':'point de départ'}</div>${spark(S.hist[f],x=>x.e1)}</div>`;
@@ -888,6 +941,26 @@ function viewProgress(){
   const logs=Object.values(S.logs).sort((a,b)=>b.at-a.at).slice(0,8);
   h+=`<div class="sec"><h2>Dernières séances</h2></div><div class="card">${logs.length?logs.map(l=>`<div class="log-row"><span>${SESSIONS[l.id].name}</span><small>${parse(l.d).getDate()} ${MOIS[parse(l.d).getMonth()].slice(0,4)}.</small></div>`).join(''):'<div style="color:var(--muted);font-size:14px">Termine ta première séance pour voir ta progression ici.</div>'}</div>`;
   return h;
+}
+function sgoalSettings(){
+  const d=disc(),G=S.sgoal||{},sg=sgoalInfo();
+  let body='<div class="tip">Choisis une discipline : ses mouvements passent en priorité dans tes séances de force.</div>';
+  if(d){
+    body=sg.lifts.map(({f,cur,target})=>{const L=LIFTS[f];return `<div class="srow"><label>${L.name}<small>actuel ${L.bw?'+':''}${kg(r25(cur))} kg${L.bw?' de lest':''}</small></label><input data-sgoal="${f}" type="number" inputmode="decimal" step="${L.oly?1:2.5}" placeholder="objectif" value="${target!=null?target:''}"></div>`}).join('')
+    +`<div class="srow"><label>Date de compétition<small>affûtage les 10 derniers jours</small></label><input data-sgoal-date type="date" value="${G.date||''}" style="width:150px"></div>`;
+    if(sg.ttot)body+=`<div class="grid3"><div class="stat"><b class="num">${kg(r25(sg.tot))}</b><small>total actuel</small></div><div class="stat"><b class="num">${kg(sg.ttot)}</b><small>total visé</small></div><div class="stat"><b class="num">${sg.tot>=sg.ttot?'atteint':'+'+kg(r25(sg.ttot-sg.tot))}</b><small>à gagner</small></div></div>`;
+    if(d==='haltero')body+='<div class="tip">Arraché le lundi matin, épaulé-jeté le mercredi matin, en séries courtes. Renseigne tes records dans « Records de force ».</div>';
+    if(sg.daysTo!=null)body+=`<div class="tip">${sg.daysTo<0?'Compétition passée : mets à jour ton objectif.':sg.taper?'Affûtage en cours : moins de séries, même intensité.':'J-'+sg.daysTo+' avant la compétition.'}</div>`;
+  }
+  return `<div class="sec"><h2>Objectif force</h2><small>adapte tes séances de force</small></div><div class="card">
+  <div class="seg goal-seg">${[['','Aucun'],['force','Force'],['haltero','Haltéro'],['street','Street']].map(([k,l])=>`<button class="${(d||'')===k?'on':''}" data-sdisc="${k||'none'}">${l}</button>`).join('')}</div>
+  ${body}</div>`;
+}
+function sgoalProgress(){
+  const sg=sgoalInfo();if(!sg)return '';
+  const rows=sg.lifts.map(({f,cur,target})=>{const L=LIFTS[f],pct=target?Math.max(0,Math.min(100,Math.round(cur/target*100))):null;
+    return `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${L.name}</span><span class="num">${L.bw?'+':''}${kg(r25(cur))}${target?' / '+kg(target):''} kg</span></div>${pct!=null?`<div style="height:6px;background:var(--card2);border-radius:99px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--lime);border-radius:99px"></div></div>`:''}</div>`}).join('');
+  return `<div class="sec"><h2>Objectif ${DISC[sg.d].long.toLowerCase()}</h2><small>${sg.daysTo!=null&&sg.daysTo>=0?'J-'+sg.daysTo:''}</small></div><div class="card">${sg.ttot?`<div class="ex-name">Total ${kg(r25(sg.tot))} / ${kg(sg.ttot)} kg</div>`:''}${rows}</div>`;
 }
 function goalSettings(){
   const G=S.goal||{},gi=goalInfo();
@@ -912,8 +985,9 @@ function viewSettings(){
   <div class="srow"><label>Rameur 2000 m<small>mm:ss, vide pour refaire le test</small></label><input data-set-ergo inputmode="numeric" placeholder="à tester" value="${S.ergo2k?mmss(S.ergo2k):''}"></div>
   </div><div class="sec"><h2>Calendrier</h2></div><div class="card"><div class="srow"><label>Semaine du cycle en cours<small>recale tout le programme</small></label><div class="seg">${[1,2,3,4].map(n=>`<button class="${n===curW?'on':''}" data-cw="${n}">${n}</button>`).join('')}</div></div></div>
   <div class="sec"><h2>Records de force</h2><small>1 rep</small></div><div class="card">
-  ${Object.keys(LIFTS).map(f=>`<div class="srow"><label>${LIFTS[f].name}<small>${LIFTS[f].bw?'lest maximal':'charge maximale'}</small></label><input data-orm="${f}" type="number" inputmode="decimal" step="2.5" value="${kg(Math.round((S.tm[f]/.95-(LIFTS[f].bw?S.bw:0))*10)/10).replace(',','.')}"></div>`).join('')}
+  ${shownLifts().map(f=>`<div class="srow"><label>${LIFTS[f].name}<small>${LIFTS[f].bw?'lest maximal':'charge maximale'}</small></label><input data-orm="${f}" type="number" inputmode="decimal" step="2.5" value="${kg(Math.round((S.tm[f]/.95-(LIFTS[f].bw?S.bw:0))*10)/10).replace(',','.')}"></div>`).join('')}
   <button class="ghost" data-act="applyOrm">Recalibrer la force avec ces valeurs</button></div>
+  ${sgoalSettings()}
   ${goalSettings()}
   <div class="sec"><h2>Comptes</h2></div><div class="card">
   <button class="ghost" data-act="profiles" style="margin-top:0">Changer de profil ou en ajouter un</button>
@@ -925,7 +999,7 @@ function viewSettings(){
   return h;
 }
 function onboarding(){
-  const f=Object.keys(LIFTS);
+  const f=Object.keys(LIFTS).filter(k=>!LIFTS[k].oly);
   return `<div class="onb"><h1>On cale ton point de départ</h1><p>Tes records actuels sur une répétition. Les charges de chaque séance en découlent, puis s'ajustent selon ce que tu réalises vraiment.</p>
   <div class="card">${f.map(k=>`<div class="srow"><label>${LIFTS[k].name}<small>${LIFTS[k].bw?'lest maximal en kg':'charge maximale en kg'}</small></label><input data-orm="${k}" type="number" inputmode="decimal" step="2.5" value="${S.orm[k]}"></div>`).join('')}</div>
   <div class="card"><div class="srow"><label>Prénom</label><input data-set-name value="${esc(curProfile().name||'')}" placeholder="Ton prénom" autocomplete="given-name" style="width:140px"></div>
@@ -954,7 +1028,7 @@ document.addEventListener('click',e=>{
   if(ds.set!==undefined&&ds.i!==undefined){
     const x=draft(ui.date,ds.id).items[ds.set],i=+ds.i;
     if(x.sets[i]==null){
-      const it=(SESSIONS[ds.id].items||[]).find(q=>(q.f||q.h)===ds.set);
+      const it=sessItems(ds.id).find(q=>(q.f||q.h)===ds.set);
       x.sets[i]=it.f?forcePresc(it,ui.date).reps:hypPresc(it.h,ui.date).target;
     }
     ui.sel={ex:ds.set,i};touch();render();return;
@@ -972,6 +1046,7 @@ document.addEventListener('click',e=>{
   if(act==='addProfile'){addProfile();return}
   if(act==='share'){shareApp();return}
   if(act==='widget'){copyWidget();return}
+  if(ds.sdisc){S.sgoal=S.sgoal||{targets:{}};S.sgoal.disc=ds.sdisc==='none'?null:ds.sdisc;ensureLifts();resetForceDrafts();touch();render();return}
   if(ds.goal){S.goal=S.goal||{};S.goal.dist=ds.goal==='none'?null:ds.goal;S.goal.time=null;resetRunDrafts();touch();render();return}
   if(act==='delProfile'){openSheet(`<h3>Supprimer ${esc(profName())} ?</h3><p class="lead">Ce profil, ses records et son historique seront effacés de cet appareil.</p><button class="cta" data-act="confirmDelProfile" style="background:var(--red)">Supprimer</button><button class="ghost" data-act="closeSheet">Annuler</button>`);return}
   if(act==='confirmDelProfile'){
@@ -996,6 +1071,7 @@ document.addEventListener('click',e=>{
   if(act==='confirmReset'){S=defaults();touch();$('#sheet').innerHTML='';render();return}
 });
 // Les séances de run non terminées repartent de la nouvelle prescription.
+function resetForceDrafts(){for(const k in S.drafts)if(k.includes('|force-')&&!S.logs[k])delete S.drafts[k]}
 function resetRunDrafts(){for(const k in S.drafts)if(k.includes('|run-')&&!S.logs[k])delete S.drafts[k]}
 function readProfile(){
   const nm=document.querySelector('[data-set-name]');if(nm){curProfile().name=nm.value.trim().slice(0,24);saveProfiles()}
@@ -1008,6 +1084,12 @@ document.addEventListener('change',e=>{
     const v=parseFloat(String(e.target.value).replace(',','.').replace(/[^0-9.]/g,''));
     const x=draft(ui.date,e.target.dataset.id).items[e.target.dataset.loadin];
     if(!isNaN(v)&&v>=0)x.load=Math.round(v*100)/100;
+    touch();render();return;
+  }
+  if(e.target.matches('[data-sgoal],[data-sgoal-date]')){
+    S.sgoal=S.sgoal||{targets:{}};S.sgoal.targets=S.sgoal.targets||{};
+    if(e.target.dataset.sgoal){const v=parseFloat(String(e.target.value).replace(',','.'));if(isNaN(v)||v<=0)delete S.sgoal.targets[e.target.dataset.sgoal];else S.sgoal.targets[e.target.dataset.sgoal]=v}
+    else{S.sgoal.date=e.target.value||null;resetForceDrafts()}
     touch();render();return;
   }
   if(e.target.matches('[data-goal-time],[data-goal-date]')){

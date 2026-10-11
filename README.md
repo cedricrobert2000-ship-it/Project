@@ -20,6 +20,10 @@ Les données sont stockées dans `localStorage` (clé `apex3`, conservée depuis
 - **Profils** : toucher l'avatar en haut à droite pour passer d'un profil à l'autre ou en ajouter un. Chaque profil a son prénom, ses records (charges max, poids, 10 km), son programme et son historique. Index des profils dans `doper-profiles` ; le premier profil garde la clé `apex3`, les suivants `apex3:<id>`.
 - **Partager** : Réglages → « Partager DOPER avec un ami » envoie le lien de l'app. Sur son téléphone, l'ami crée son propre profil ; ses données restent chez lui.
 
+## Objectif force
+
+Réglages → « Objectif force », par profil : discipline (Force athlétique, Haltérophilie, Streetlifting), 1RM visé par mouvement et date de compétition. Les mouvements de la discipline passent en principal dans les séances de force (`sessItems()`) : Force → squat, développé couché, soulevé de terre en 5 séries ; Street → tractions et dips lestés en tête du lundi ; Haltéro → arraché (lundi) et épaulé-jeté (mercredi) avec un cycle dédié en séries courtes (`WAVE_OLY`). Les 10 derniers jours avant la compétition, moins de séries à même intensité. L'onglet Progrès affiche le total et chaque mouvement face à l'objectif.
+
 ## Objectif course
 
 Réglages → « Objectif course », par profil : distance (5 km, 10 km, semi, marathon), temps visé et date. Le fractionné change de format selon la distance, les allures visent l'objectif (au plus 6 s/km plus vite que le niveau estimé depuis l'allure 10 km, formule de Riegel), la sortie longue et la zone 2 s'allongent pour semi et marathon, et les 2 dernières semaines avant la course le volume baisse de 40 % (affûtage). Sans objectif, le programme vise le 10 km comme avant. L'onglet Progrès affiche l'estimation actuelle face au temps visé.
