@@ -226,16 +226,17 @@ const LIFTS={
   dip:{name:'Dips lestés',inc:1.25,bw:true},
   squat:{name:'Squat barre',inc:2.5,bw:false},
   dead:{name:'Soulevé de terre',inc:2.5,bw:false},
-  snatch:{name:'Arraché',inc:1,bw:false,oly:true},
-  cj:{name:'Épaulé-jeté',inc:1,bw:false,oly:true}
+  snatch:{name:'Snatch',inc:1,bw:false,oly:true},
+  clean:{name:'Clean',inc:1,bw:false,oly:true,noTotal:true},
+  cj:{name:'Clean & Jerk',inc:1,bw:false,oly:true}
 };
 // Haltéro : séries courtes et techniques, sans série au max.
 const WAVE_OLY={1:{sets:5,reps:3,pct:.75},2:{sets:5,reps:2,pct:.80},3:{sets:6,reps:1,pct:.86},4:{sets:3,reps:2,pct:.65}};
-const DEF_ORM={bench:105,ohp:55,pull:52.5,dip:70,squat:110,dead:120,snatch:60,cj:80};
+const DEF_ORM={bench:105,ohp:55,pull:52.5,dip:70,squat:110,dead:120,snatch:60,clean:85,cj:80};
 /* ---------- objectif force ---------- */
 const DISC={
   force:{label:'Force',long:'Force athlétique',lifts:['squat','bench','dead'],total:true},
-  haltero:{label:'Haltéro',long:'Haltérophilie',lifts:['snatch','cj'],total:true},
+  haltero:{label:'Haltéro',long:'Haltérophilie',lifts:['snatch','clean','cj'],total:true},
   street:{label:'Street',long:'Streetlifting',lifts:['pull','dip','squat'],total:true}
 };
 const disc=()=>S.sgoal&&DISC[S.sgoal.disc]?S.sgoal.disc:null;
@@ -253,7 +254,8 @@ function sgoalInfo(dateStr){
   const G=S.sgoal,T=G.targets||{};
   let daysTo=null;if(G.date)daysTo=Math.round((parse(G.date)-parse(dateStr||iso(new Date())))/DAY_MS);
   const lifts=DISC[d].lifts.map(f=>({f,cur:oneRM(f),target:T[f]||null}));
-  const tot=lifts.reduce((a,x)=>a+x.cur,0),ttot=lifts.every(x=>x.target)?lifts.reduce((a,x)=>a+x.target,0):null;
+  const tl=lifts.filter(x=>!LIFTS[x.f].noTotal);// le total officiel d'haltéro = snatch + clean & jerk
+  const tot=tl.reduce((a,x)=>a+x.cur,0),ttot=tl.every(x=>x.target)?tl.reduce((a,x)=>a+x.target,0):null;
   return {d,lifts,daysTo,taper:daysTo!=null&&daysTo>=0&&daysTo<=10,tot,ttot};
 }
 // Séances de force selon la discipline visée : les mouvements de la discipline passent en principal.
@@ -268,8 +270,8 @@ function sessItems(id){
     if(id==='force-haut')return [{f:'pull',role:'main',tip:'Menton au-dessus de la barre, extension complète en bas.'},{f:'dip',role:'main',tip:'Épaules sous les coudes en bas, verrouillage en haut.'},{f:'bench',role:'sec'},{f:'ohp',role:'sec'}];
     return base;
   }
-  if(id==='force-haut')return [{f:'snatch',role:'main',tip:'Barre près du corps, extension complète, réception active.'},{f:'bench',role:'sec'},{f:'pull',role:'sec'},{f:'ohp',role:'sec'}];
-  return [{f:'cj',role:'main',tip:'Épaulé propre, puis jeté : dip court, drive vertical.'},base[0],{h:'bulg'},{h:'lcurl'}];
+  if(id==='force-haut')return [{f:'snatch',role:'main',tip:'Barre près du corps, extension complète, réception active.'},{f:'clean',role:'sec',tip:'Tirage long, coudes rapides, réception en front squat solide.'},{f:'bench',role:'sec'},{f:'pull',role:'sec'}];
+  return [{f:'cj',role:'main',tip:'Clean propre, puis jerk : dip court, drive vertical.'},base[0],{h:'bulg'},{h:'lcurl'}];
 }
 const WAVE={
   1:{sets:5,reps:5,pct:.80,name:'Volume lourd',rest:'2 min 30 de récup'},
@@ -949,7 +951,7 @@ function sgoalSettings(){
     body=sg.lifts.map(({f,cur,target})=>{const L=LIFTS[f];return `<div class="srow"><label>${L.name}<small>actuel ${L.bw?'+':''}${kg(r25(cur))} kg${L.bw?' de lest':''}</small></label><input data-sgoal="${f}" type="number" inputmode="decimal" step="${L.oly?1:2.5}" placeholder="objectif" value="${target!=null?target:''}"></div>`}).join('')
     +`<div class="srow"><label>Date de compétition<small>affûtage les 10 derniers jours</small></label><input data-sgoal-date type="date" value="${G.date||''}" style="width:150px"></div>`;
     if(sg.ttot)body+=`<div class="grid3"><div class="stat"><b class="num">${kg(r25(sg.tot))}</b><small>total actuel</small></div><div class="stat"><b class="num">${kg(sg.ttot)}</b><small>total visé</small></div><div class="stat"><b class="num">${sg.tot>=sg.ttot?'atteint':'+'+kg(r25(sg.ttot-sg.tot))}</b><small>à gagner</small></div></div>`;
-    if(d==='haltero')body+='<div class="tip">Arraché le lundi matin, épaulé-jeté le mercredi matin, en séries courtes. Renseigne tes records dans « Records de force ».</div>';
+    if(d==='haltero')body+='<div class="tip">Snatch et clean le lundi matin, clean &amp; jerk le mercredi matin, en séries courtes. Le total compte snatch + clean &amp; jerk. Renseigne tes records dans « Records de force ».</div>';
     if(sg.daysTo!=null)body+=`<div class="tip">${sg.daysTo<0?'Compétition passée : mets à jour ton objectif.':sg.taper?'Affûtage en cours : moins de séries, même intensité.':'J-'+sg.daysTo+' avant la compétition.'}</div>`;
   }
   return `<div class="sec"><h2>Objectif force</h2><small>adapte tes séances de force</small></div><div class="card">

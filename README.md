@@ -22,7 +22,7 @@ Les données sont stockées dans `localStorage` (clé `apex3`, conservée depuis
 
 ## Objectif force
 
-Réglages → « Objectif force », par profil : discipline (Force athlétique, Haltérophilie, Streetlifting), 1RM visé par mouvement et date de compétition. Les mouvements de la discipline passent en principal dans les séances de force (`sessItems()`) : Force → squat, développé couché, soulevé de terre en 5 séries ; Street → tractions et dips lestés en tête du lundi ; Haltéro → arraché (lundi) et épaulé-jeté (mercredi) avec un cycle dédié en séries courtes (`WAVE_OLY`). Les 10 derniers jours avant la compétition, moins de séries à même intensité. L'onglet Progrès affiche le total et chaque mouvement face à l'objectif.
+Réglages → « Objectif force », par profil : discipline (Force athlétique, Haltérophilie, Streetlifting), 1RM visé par mouvement et date de compétition. Les mouvements de la discipline passent en principal dans les séances de force (`sessItems()`) : Force → squat, développé couché, soulevé de terre en 5 séries ; Street → tractions et dips lestés en tête du lundi ; Haltéro → snatch et clean (lundi), clean & jerk (mercredi), total = snatch + clean & jerk, avec un cycle dédié en séries courtes (`WAVE_OLY`). Les 10 derniers jours avant la compétition, moins de séries à même intensité. L'onglet Progrès affiche le total et chaque mouvement face à l'objectif.
 
 ## Objectif course
 
